@@ -25,6 +25,20 @@ export type Customer = {
   person_type: string
 }
 
+/** Resposta da API get_customers (RPC) */
+export type GetCustomersResponse = {
+  total: number
+  limit: number
+  offset: number
+  data: CustomerFromAPI[]
+}
+
+/** Cliente como retornado pela API get_customers (com status e address aninhados) */
+export type CustomerFromAPI = Omit<Customer, 'status_id' | 'address_id'> & {
+  status?: { id: number; name: string }
+  address?: { id?: string; city?: string; state?: string; street?: string; number?: string; zip_code?: string; neighbourhood?: string; additional_info?: string }
+}
+
 export type Contract = {
   id: string
   created_at: string

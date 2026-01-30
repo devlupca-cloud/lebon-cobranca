@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
-import type { Customer } from '@/types/database'
+import type { Customer, CustomerFromAPI, GetCustomersResponse } from '@/types/database'
 
 export type GetCustomersParams = {
   companyId: string
@@ -13,7 +13,7 @@ export type GetCustomersParams = {
 
 export async function getCustomers(
   params: GetCustomersParams
-): Promise<Customer[]> {
+): Promise<GetCustomersResponse> {
   const supabase = createClient()
   const { data, error } = await supabase.rpc('get_customers', {
     p_company_id: params.companyId || null,
@@ -26,8 +26,18 @@ export async function getCustomers(
   })
 
   if (error) throw error
-  const list = Array.isArray(data) ? data : data != null && Array.isArray((data as { data?: unknown }).data) ? (data as { data: Customer[] }).data : []
-  return list as Customer[]
+
+  const raw = data as GetCustomersResponse | null | undefined
+  if (raw && typeof raw === 'object' && Array.isArray(raw.data)) {
+    return {
+      total: Number(raw.total) ?? 0,
+      limit: Number(raw.limit) ?? 20,
+      offset: Number(raw.offset) ?? 0,
+      data: raw.data as CustomerFromAPI[],
+    }
+  }
+
+  return { total: 0, limit: params.limit ?? 20, offset: params.offset ?? 0, data: [] }
 }
 
 export async function getCustomerById(id: string): Promise<Customer | null> {

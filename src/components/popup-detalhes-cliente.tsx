@@ -1,12 +1,12 @@
 'use client'
 
 import { Modal } from '@/components/ui'
-import type { Customer } from '@/types/database'
+import type { CustomerFromAPI } from '@/types/database'
 
 type PopupDetalhesClienteProps = {
   open: boolean
   onClose: () => void
-  customer: Customer | null
+  customer: CustomerFromAPI | null
 }
 
 function formatCpfCnpj(value: string | null): string {
@@ -30,7 +30,7 @@ export function PopupDetalhesCliente({
 
   const displayName =
     customer.full_name ?? customer.legal_name ?? customer.trade_name ?? '—'
-  const doc = customer.person_type === 'pf' ? customer.cpf : customer.cnpj
+  const doc = customer.person_type === 'fisica' ? customer.cpf : customer.cnpj
   const phone = customer.mobile ?? customer.phone ?? '—'
 
   return (
@@ -55,7 +55,7 @@ export function PopupDetalhesCliente({
         </div>
         <div>
           <p className="text-xs font-medium uppercase text-zinc-500">
-            {customer.person_type === 'pf' ? 'CPF' : 'CNPJ'}
+            {customer.person_type === 'fisica' ? 'CPF' : 'CNPJ'}
           </p>
           <p className="text-zinc-900">{formatCpfCnpj(doc)}</p>
         </div>

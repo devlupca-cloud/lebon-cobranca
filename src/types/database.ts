@@ -1,0 +1,70 @@
+export type Customer = {
+  id: string
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+  company_id: string
+  cpf: string | null
+  cnpj: string | null
+  legal_name: string | null
+  trade_name: string | null
+  state_registration: string | null
+  full_name: string | null
+  birth_date: string | null
+  occupation: string | null
+  address_id: string | null
+  referral: string | null
+  phone: string | null
+  mobile: string | null
+  email: string | null
+  customer_code: string | null
+  credit_limit: number | null
+  outstanding_balance: number | null
+  status_id: number
+  marital_status_id: number | null
+  person_type: string
+}
+
+export type Contract = {
+  id: string
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+  company_id: string
+  customer_id: string
+  contract_number: string | null
+  inclusion_date: string | null
+  contract_amount: number | null
+  installments_count: number
+  admin_fee_rate: number | null
+  interest_rate: number | null
+  first_due_date: string | null
+  total_amount: number | null
+  installment_amount: number | null
+  residual_amount: number | null
+  total_installments: number | null
+  bank: string | null
+  contract_category_id: number
+  contract_type_id: number
+  status_id: number
+  notes: string | null
+}
+
+export type CustomerAutocompleteItem = {
+  id: string
+  label: string
+  [key: string]: unknown
+}
+
+export type ContractInstallment = {
+  id: string
+  contract_id: string
+  company_id: string
+  installment_number: number
+  due_date: string
+  amount: number
+  amount_paid: number
+  paid_at: string | null
+  status_id: number
+  notes: string | null
+}

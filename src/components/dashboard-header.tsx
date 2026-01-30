@@ -13,11 +13,11 @@ export function DashboardHeader() {
   }
 
   return (
-    <header className="flex h-[90px] shrink-0 items-center justify-end border-b border-[#1E3A8A] bg-[#1E3A8A] px-6">
+    <header className="flex h-14 shrink-0 items-center justify-end border-b border-[#1E3A8A]/30 bg-[#1E3A8A] px-6 shadow-sm">
       <button
         type="button"
         onClick={handleLogout}
-        className="rounded bg-white/10 px-4 py-2.5 text-sm font-medium text-white hover:bg-white/20"
+        className="rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
       >
         Sair
       </button>

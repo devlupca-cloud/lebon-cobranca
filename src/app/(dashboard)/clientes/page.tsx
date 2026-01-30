@@ -9,13 +9,11 @@ import { formatCPFOrCNPJ } from '@/lib/format'
 import { useCompanyId } from '@/hooks/use-company-id'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
-import { MdAdd, MdArrowBack, MdClose, MdEditDocument, MdSearch, MdVisibility } from 'react-icons/md'
+import { MdAdd, MdArrowBack, MdEditDocument, MdPersonOff, MdSearch, MdVisibility } from 'react-icons/md'
+import { buttonPrimary, buttonSecondary, input, label as labelClass, pageSubtitle, pageTitle, pillType, tableCell, tableCellMuted, tableHead } from '@/lib/design'
 import type { CustomerFromAPI } from '@/types/database'
 
 const list = (arr: unknown): CustomerFromAPI[] => (Array.isArray(arr) ? arr : [])
-
-const inputBase =
-  'w-full rounded-lg border border-[#E0E3E7] bg-[#f1f4f8] px-3 py-2.5 text-sm text-[#14181B] placeholder:text-[#57636C] focus:border-[#1E3A8A] focus:outline-none focus:ring-1 focus:ring-[#1E3A8A]'
 
 export default function ClientesPage() {
   const { companyId, loading: companyLoading, error: companyError } = useCompanyId()
@@ -112,10 +110,8 @@ export default function ClientesPage() {
         {/* Título + contador na mesma linha */}
         <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-[22px] font-semibold tracking-tight text-[#14181B]">
-              Lista de Clientes
-            </h1>
-            <p className="mt-1 text-sm text-[#57636C]">
+            <h1 className={pageTitle}>Lista de Clientes</h1>
+            <p className={pageSubtitle}>
               Gerencie todos os clientes cadastrados no sistema
             </p>
           </div>
@@ -127,64 +123,57 @@ export default function ClientesPage() {
         {/* Filtros em linha (igual ao Flutter: Nome/Razão Social, CPF, CNPJ, Status, Relatórios, Limpar) */}
         <div className="mb-6 flex flex-wrap items-end gap-4">
           <div className="min-w-0 flex-1">
-            <label className="mb-2 block text-sm font-medium text-[#14181B]">
-              Nome/Razão Social
-            </label>
+            <label className={labelClass}>Nome/Razão Social</label>
             <div className="relative">
               <input
                 type="text"
                 value={searchName}
                 onChange={(e) => setSearchName(e.target.value)}
                 placeholder="Buscar por nome..."
-                className={`${inputBase} pr-10`}
+                className={`${input} pr-10`}
               />
               <MdSearch className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#57636C]" />
             </div>
           </div>
           <div className="min-w-0 flex-1">
-            <label className="mb-2 block text-sm font-medium text-[#14181B]">CPF</label>
+            <label className={labelClass}>CPF</label>
             <input
               type="text"
               value={searchCpf}
               onChange={(e) => setSearchCpf(e.target.value)}
               placeholder="000.000.000-00"
-              className={inputBase}
+              className={input}
             />
           </div>
           <div className="min-w-0 flex-1">
-            <label className="mb-2 block text-sm font-medium text-[#14181B]">CNPJ</label>
+            <label className={labelClass}>CNPJ</label>
             <input
               type="text"
               value={searchCnpj}
               onChange={(e) => setSearchCnpj(e.target.value)}
               placeholder="00.000.000/0000-00"
-              className={inputBase}
+              className={input}
             />
           </div>
           <div className="w-[159px]">
-            <label className="mb-2 block text-sm font-medium text-[#14181B]">Status</label>
+            <label className={labelClass}>Status</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(Number(e.target.value))}
-              className={`${inputBase} h-12 cursor-pointer appearance-none bg-[#f1f4f8] pr-8`}
+              className={`${input} cursor-pointer appearance-none pr-8`}
             >
               <option value={0}>Todos</option>
               <option value={1}>Ativos</option>
               <option value={2}>Inativos</option>
             </select>
           </div>
-          <Button type="button" variant="primary" className="h-12 px-4" onClick={() => {}}>
+          <button type="button" className={buttonPrimary} onClick={() => {}}>
             <MdEditDocument className="mr-2 h-5 w-5" />
             Relatórios
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            className="h-12 border border-[#E0E3E7] bg-[#f1f4f8] text-[#1E3A8A] hover:bg-[#e8ecf1]"
-            onClick={clearFilters}
-          >
+          </button>
+          <button type="button" className={buttonSecondary} onClick={clearFilters}>
             Limpar Filtros
-          </Button>
+          </button>
         </div>
 
         {error && (
@@ -221,21 +210,21 @@ export default function ClientesPage() {
                   ) : (
                     customerList.map((c) => (
                       <tr key={c.id} className="hover:bg-[#f1f4f8]/50">
-                        <td className="px-4 py-3 text-sm text-[#14181B]">
+                        <td className={tableCell}>
                           {c.customer_code ?? `N: ${c.id.slice(0, 8)}`}
                         </td>
                         <td className="px-4 py-3">
-                          <span className="inline-flex rounded-full bg-[#14181B] px-2.5 py-0.5 text-xs font-medium text-white">
+                          <span className={pillType}>
                             {c.person_type === 'juridica' ? 'PJ' : 'PF'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-[#57636C]">
+                        <td className={tableCellMuted}>
                           {formatCPFOrCNPJ(c.cpf, c.cnpj)}
                         </td>
-                        <td className="px-4 py-3 text-sm text-[#14181B]">
+                        <td className={tableCell}>
                           {c.legal_name ?? c.full_name ?? c.trade_name ?? '—'}
                         </td>
-                        <td className="px-4 py-3 text-sm text-[#57636C]">
+                        <td className={tableCellMuted}>
                           <div className="flex flex-col gap-0.5">
                             {(c.phone ?? c.mobile) && (
                               <span>{c.phone ?? c.mobile}</span>
@@ -246,10 +235,10 @@ export default function ClientesPage() {
                             {!(c.phone ?? c.mobile) && !c.email && '—'}
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-[#57636C]">
+                        <td className={tableCellMuted}>
                           {c.address?.city ?? '—'}
                         </td>
-                        <td className="px-4 py-3 text-sm text-[#57636C]">
+                        <td className={tableCellMuted}>
                           {c.status?.name ?? '—'}
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -267,7 +256,7 @@ export default function ClientesPage() {
                               className="rounded p-1.5 text-red-500 hover:bg-red-50 hover:text-red-600"
                               title="Excluir"
                             >
-                              <MdClose className="h-5 w-5" />
+                              <MdPersonOff className="h-5 w-5" />
                             </button>
                           </span>
                         </td>

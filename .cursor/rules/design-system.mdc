@@ -1,0 +1,46 @@
+---
+description: Padronização de design do projeto Lebon Cobranças
+globs:
+alwaysApply: true
+---
+
+# Design system – Lebon Cobranças
+
+Sempre usar os mesmos tokens e classes para manter o layout consistente.
+
+## Cores (usar sempre estes valores)
+
+- **Primária (azul Lebon):** `#1E3A8A` – botões principais, links, sidebar/header, foco.
+- **Hover primário:** `#1e40af`.
+- **Fundo da aplicação:** `#f1f4f8` – área de conteúdo (dashboard).
+- **Fundo secundário / cards:** `#ffffff`.
+- **Texto primário:** `#14181B`.
+- **Texto secundário:** `#57636C` – labels, descrições, dados secundários em tabelas.
+- **Borda:** `#E0E3E7` – inputs, cards, tabelas.
+- **Erro:** `#ff5963` ou `text-red-500`. **Sucesso:** `#249689` ou `text-emerald-600`.
+
+## Tipografia
+
+- **Corpo:** Inter (variável `--font-inter`).
+- **Títulos:** Inter Tight quando quiser destaque (variável `--font-inter-tight`).
+- **Tamanhos:** `text-sm` para formulários e tabelas; `text-[22px]` ou `text-2xl` para título de página.
+
+## Formulários e controles
+
+- **Inputs e selects:** mesma altura – usar `py-2.5 px-3 text-sm`, `rounded-lg`, borda `#E0E3E7`, fundo `#f1f4f8`, foco com `ring` e `border` `#1E3A8A`.
+- **Botões:** mesma altura dos inputs – `py-2.5 px-4 text-sm`, `rounded-lg`. Primário: fundo `#1E3A8A`. Secundário: fundo `#f1f4f8`, borda `#E0E3E7`, texto `#1E3A8A`.
+- **Labels:** `text-sm font-medium text-[#14181B]`, `mb-2` antes do campo.
+
+## Classes padronizadas
+
+Importar de `@/lib/design` e usar:
+
+- `input` – para `<input>` e `<select>`.
+- `label` – para `<label>` de formulário.
+- `buttonPrimary` / `buttonSecondary` – para botões (ou componente `Button` com as variantes).
+- `card` – container branco com borda.
+- `tableHead`, `tableCell`, `tableCellMuted` – tabelas.
+- `pillType` – badge PF/PJ (fundo `#14181B`, texto branco).
+- `pageTitle`, `pageSubtitle` – títulos de página.
+
+Quando criar novas telas ou componentes, preferir essas constantes em vez de montar Tailwind manualmente, para manter tudo alinhado ao design system.

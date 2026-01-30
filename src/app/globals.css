@@ -1,32 +1,47 @@
 @import "tailwindcss";
 
-/* Tema alinhado ao Flutter (FlutterFlowTheme) */
+/* ============================================
+   Design system – Lebon Cobranças
+   Padrão único para cores, tipografia e espaçamento
+   ============================================ */
+
 :root {
-  /* Backgrounds */
+  /* --- Cores de fundo --- */
   --primary-background: #f1f4f8;
   --secondary-background: #ffffff;
 
-  /* Texto */
+  /* --- Texto --- */
   --primary-text: #14181b;
   --secondary-text: #57636c;
 
-  /* Cores principais (customColor1 = azul do projeto) */
+  /* --- Cor primária do projeto (azul Lebon) --- */
   --primary: #1e3a8a;
+  --primary-hover: #1e40af;
   --primary-foreground: #ffffff;
 
-  /* Tema Flutter original (referência) */
-  --flutter-primary: #4b39ef;
-  --flutter-secondary: #39d2c0;
-  --flutter-tertiary: #ee8b60;
-  --alternate: #e0e3e7;
+  /* --- Bordas e superfícies --- */
+  --border: #e0e3e7;
+  --border-focus: var(--primary);
 
-  /* Semânticas */
+  /* --- Semânticas --- */
   --success: #249689;
   --warning: #f9cf58;
   --error: #ff5963;
-  --info: #ffffff;
+  --alternate: #e0e3e7;
 
-  /* Compatibilidade com nomes antigos */
+  /* --- Espaçamento padronizado --- */
+  --input-padding-x: 0.75rem;   /* 12px - px-3 */
+  --input-padding-y: 0.625rem;  /* 10px - py-2.5 */
+  --radius: 0.5rem;             /* 8px - rounded-lg */
+  --radius-sm: 0.375rem;        /* 6px - rounded-md */
+
+  /* --- Tipografia --- */
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-inter-tight);
+
+  /* Compatibilidade */
   --background: var(--primary-background);
   --foreground: var(--primary-text);
 }

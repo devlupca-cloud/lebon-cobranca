@@ -1,30 +1,52 @@
 @import "tailwindcss";
 
+/* Tema alinhado ao Flutter (FlutterFlowTheme) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Backgrounds */
+  --primary-background: #f1f4f8;
+  --secondary-background: #ffffff;
+
+  /* Texto */
+  --primary-text: #14181b;
+  --secondary-text: #57636c;
+
+  /* Cores principais (customColor1 = azul do projeto) */
   --primary: #1e3a8a;
   --primary-foreground: #ffffff;
+
+  /* Tema Flutter original (referência) */
+  --flutter-primary: #4b39ef;
+  --flutter-secondary: #39d2c0;
+  --flutter-tertiary: #ee8b60;
+  --alternate: #e0e3e7;
+
+  /* Semânticas */
+  --success: #249689;
+  --warning: #f9cf58;
+  --error: #ff5963;
+  --info: #ffffff;
+
+  /* Compatibilidade com nomes antigos */
+  --background: var(--primary-background);
+  --foreground: var(--primary-text);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--primary-background);
+  --color-foreground: var(--primary-text);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-primary-text: var(--primary-text);
+  --color-secondary-text: var(--secondary-text);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-inter-tight);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--primary-background);
+  color: var(--primary-text);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }

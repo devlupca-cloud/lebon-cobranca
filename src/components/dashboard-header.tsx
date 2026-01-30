@@ -1,10 +1,12 @@
 'use client'
 
+import { useHeader } from '@/contexts/header-context'
 import { signOut } from '@/lib/auth'
 import { useRouter } from 'next/navigation'
 
 export function DashboardHeader() {
   const router = useRouter()
+  const { leftContent } = useHeader()
 
   async function handleLogout() {
     await signOut()
@@ -13,7 +15,10 @@ export function DashboardHeader() {
   }
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-end border-b border-[#1E3A8A]/30 bg-[#1E3A8A] px-6 shadow-sm">
+    <header className="flex h-14 shrink-0 items-center justify-between gap-4 border-b border-[#1E3A8A]/30 bg-[#1E3A8A] px-6 shadow-sm">
+      <div className="flex items-center gap-3">
+        {leftContent}
+      </div>
       <button
         type="button"
         onClick={handleLogout}

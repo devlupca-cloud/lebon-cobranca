@@ -1,0 +1,25 @@
+---
+description: Priorizar bibliotecas prontas em vez de implementações manuais
+globs:
+alwaysApply: true
+---
+
+# Priorizar bibliotecas prontas
+
+- **Nunca implementar "na mão"** o que uma biblioteca bem mantida já resolve: ícones, formatação (CPF/CNPJ, datas, moeda), validação de formulários, modais, tabelas, etc.
+- **Sempre procurar bibliotecas prontas** para otimizar a aplicação (menos código próprio, menos bugs, manutenção e acessibilidade melhores).
+- **Só evitar bibliotecas** quando atrapalharem: bundle muito grande sem tree-shake, conflito com o stack, ou quando um trecho mínimo customizado for mais simples e estável que a lib.
+
+## Exemplos
+
+- **Ícones**: usar `react-icons` (Material, Heroicons, etc.) em vez de SVGs manuais.
+- **Formatação**: libs como `libphonenumber-js`, `date-fns` ou `dayjs`, máscaras com `react-input-mask` ou `react-hook-form` + máscara, em vez de regex/strings manuais.
+- **Formulários**: `react-hook-form` + `zod` (ou `yup`) em vez de estado manual e validação manual.
+- **UI**: componentes de design system (shadcn/ui, Radix, etc.) quando fizer sentido, em vez de construir tudo do zero.
+- **Datas**: `date-fns` ou `dayjs` em vez de `Date` nativo e formatação manual.
+
+## Quando NÃO usar lib
+
+- Trecho trivial (ex.: um `clsx` ou um helper de 3 linhas).
+- Lib desatualizada, insegura ou que aumenta muito o bundle sem benefício.
+- Requisito muito específico que a lib não cobre e customizar seria mais complexo que fazer na mão.

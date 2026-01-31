@@ -4,7 +4,7 @@ import { Button } from '@/components/ui'
 import { LoadingScreen } from '@/components/ui'
 import { PopupDetalhesCliente } from '@/components/popup-detalhes-cliente'
 import { useHeader } from '@/contexts/header-context'
-import { getCustomers } from '@/lib/supabase/customers'
+import { deleteCustomer, getCustomers } from '@/lib/supabase/customers'
 import { formatCPFOrCNPJ } from '@/lib/format'
 import { useCompanyId } from '@/hooks/use-company-id'
 import Link from 'next/link'
@@ -27,6 +27,7 @@ export default function ClientesPage() {
   const [statusFilter, setStatusFilter] = useState<number>(0)
   const [detailCustomer, setDetailCustomer] = useState<CustomerFromAPI | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const fetchCustomers = useCallback(async () => {
     if (!companyId) return
@@ -62,6 +63,24 @@ export default function ClientesPage() {
     setSearchCnpj('')
     setStatusFilter(0)
   }, [])
+
+  const handleDelete = useCallback(
+    async (c: CustomerFromAPI) => {
+      const name = c.full_name ?? c.legal_name ?? c.trade_name ?? 'este cliente'
+      if (!companyId || !window.confirm(`Excluir ${name}? Esta ação marca o cliente como excluído (exclusão lógica).`)) return
+      setDeletingId(c.id)
+      setError(null)
+      try {
+        await deleteCustomer(c.id, companyId)
+        await fetchCustomers()
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Erro ao excluir cliente.')
+      } finally {
+        setDeletingId(null)
+      }
+    },
+    [companyId, fetchCustomers]
+  )
 
   const { setLeftContent } = useHeader()
   useEffect(() => {
@@ -177,7 +196,7 @@ export default function ClientesPage() {
         </div>
 
         {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <div className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
             {error}
           </div>
         )}
@@ -185,7 +204,7 @@ export default function ClientesPage() {
         {loading ? (
           <LoadingScreen message="Carregando clientes..." />
         ) : (
-          <div className="overflow-hidden rounded-lg border border-[#E0E3E7] bg-white">
+          <div className="overflow-hidden rounded-[8px] border border-[#E0E3E7] bg-white">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-[#E0E3E7]">
                 <thead className="bg-[#f1f4f8]">
@@ -222,7 +241,9 @@ export default function ClientesPage() {
                           {formatCPFOrCNPJ(c.cpf, c.cnpj)}
                         </td>
                         <td className={tableCell}>
-                          {c.legal_name ?? c.full_name ?? c.trade_name ?? '—'}
+                          {c.person_type === 'juridica'
+                            ? (c.legal_name ?? c.trade_name ?? '—')
+                            : (c.full_name ?? '—')}
                         </td>
                         <td className={tableCellMuted}>
                           <div className="flex flex-col gap-0.5">
@@ -236,24 +257,25 @@ export default function ClientesPage() {
                           </div>
                         </td>
                         <td className={tableCellMuted}>
-                          {c.address?.city ?? '—'}
+                          {[c.address?.city, c.address?.state].filter(Boolean).join('/') || '—'}
                         </td>
                         <td className={tableCellMuted}>
                           {c.status?.name ?? '—'}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <span className="flex justify-end gap-1">
-                            <button
-                              type="button"
-                              onClick={() => { setDetailCustomer(c); setDetailOpen(true) }}
+                            <Link
+                              href={`/editar-cliente/${c.id}`}
                               className="rounded p-1.5 text-[#1E3A8A] hover:bg-[#1E3A8A]/10"
-                              title="Ver"
+                              title="Editar"
                             >
                               <MdVisibility className="h-5 w-5" />
-                            </button>
+                            </Link>
                             <button
                               type="button"
-                              className="rounded p-1.5 text-red-500 hover:bg-red-50 hover:text-red-600"
+                              onClick={() => handleDelete(c)}
+                              disabled={deletingId === c.id}
+                              className="rounded p-1.5 text-red-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                               title="Excluir"
                             >
                               <MdPersonOff className="h-5 w-5" />

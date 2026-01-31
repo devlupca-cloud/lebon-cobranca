@@ -22,7 +22,7 @@ export function DashboardHeader() {
       <button
         type="button"
         onClick={handleLogout}
-        className="rounded-lg bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+        className="rounded-[8px] bg-white/10 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
       >
         Sair
       </button>

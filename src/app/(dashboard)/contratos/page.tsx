@@ -83,7 +83,7 @@ export default function ContratosPage() {
       {loading ? (
         <LoadingScreen message="Carregando contratos..." />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+        <div className="overflow-hidden rounded-[8px] border border-zinc-200 bg-white">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-zinc-200">
               <thead className="bg-zinc-50">

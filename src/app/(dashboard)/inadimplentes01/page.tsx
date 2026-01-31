@@ -83,7 +83,7 @@ export default function InadimplentesPage() {
 
       {/* Card resumo (estilo Flutter: gradiente vermelho) */}
       <div
-        className="mb-8 rounded-2xl px-6 py-6 text-white shadow-lg"
+        className="mb-8 rounded-[8px] px-6 py-6 text-white shadow-lg"
         style={{
           background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 100%)',
         }}
@@ -120,7 +120,7 @@ export default function InadimplentesPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-zinc-200 bg-white">
+      <div className="rounded-[8px] border border-zinc-200 bg-white">
         <div className="border-b border-zinc-200 px-4 py-3">
           <h3 className="font-semibold text-zinc-900">Lista de Inadimplentes</h3>
         </div>

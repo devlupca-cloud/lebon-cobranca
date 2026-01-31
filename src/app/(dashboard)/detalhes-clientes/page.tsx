@@ -93,7 +93,7 @@ function DetalhesClientesContent() {
         <h1 className="text-2xl font-semibold text-zinc-900">Detalhes do Cliente</h1>
       </div>
 
-      <div className="rounded-lg border border-zinc-200 bg-white p-6 shadow-sm">
+      <div className="rounded-[8px] border border-zinc-200 bg-white p-6 shadow-sm">
         <dl className="grid gap-4 sm:grid-cols-2">
           <div>
             <dt className="text-xs font-medium uppercase text-zinc-500">Nome</dt>

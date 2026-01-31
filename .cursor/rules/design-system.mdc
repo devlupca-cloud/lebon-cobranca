@@ -25,10 +25,14 @@ Sempre usar os mesmos tokens e classes para manter o layout consistente.
 - **Títulos:** Inter Tight quando quiser destaque (variável `--font-inter-tight`).
 - **Tamanhos:** `text-sm` para formulários e tabelas; `text-[22px]` ou `text-2xl` para título de página.
 
+## Border radius
+
+- **Sempre usar corner radius = 8px** em cards, botões, inputs, modais e containers. Usar `rounded-[8px]` no Tailwind. Exceção: elementos que devem ser círculos (ex.: avatar, logo circular, spinner) podem usar `rounded-full`.
+
 ## Formulários e controles
 
-- **Inputs e selects:** mesma altura – usar `py-2.5 px-3 text-sm`, `rounded-lg`, borda `#E0E3E7`, fundo `#f1f4f8`, foco com `ring` e `border` `#1E3A8A`.
-- **Botões:** mesma altura dos inputs – `py-2.5 px-4 text-sm`, `rounded-lg`. Primário: fundo `#1E3A8A`. Secundário: fundo `#f1f4f8`, borda `#E0E3E7`, texto `#1E3A8A`.
+- **Inputs e selects:** mesma altura – usar `py-2.5 px-3 text-sm`, `rounded-[8px]`, borda `#E0E3E7`, fundo `#f1f4f8`, foco com `ring` e `border` `#1E3A8A`.
+- **Botões:** mesma altura dos inputs – `py-2.5 px-4 text-sm`, `rounded-[8px]`. Primário: fundo `#1E3A8A`. Secundário: fundo `#f1f4f8`, borda `#E0E3E7`, texto `#1E3A8A`.
 - **Labels:** `text-sm font-medium text-[#14181B]`, `mb-2` antes do campo.
 
 ## Classes padronizadas

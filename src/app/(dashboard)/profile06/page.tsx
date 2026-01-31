@@ -77,7 +77,7 @@ export default function Profile06Page() {
     <div className="p-6">
       <h1 className="text-2xl font-semibold text-zinc-900">Perfil</h1>
 
-      <div className="mt-6 flex flex-col gap-6 rounded-lg border border-zinc-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center">
+      <div className="mt-6 flex flex-col gap-6 rounded-[8px] border border-zinc-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center">
         <div className="flex items-center gap-4">
           <button
             type="button"

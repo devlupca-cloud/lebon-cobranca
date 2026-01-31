@@ -7,39 +7,48 @@
 
 :root {
   /* --- Cores de fundo --- */
-  --primary-background: #f1f4f8;
+  --primary-background: #f0f2f6;
   --secondary-background: #ffffff;
 
   /* --- Texto --- */
-  --primary-text: #14181b;
-  --secondary-text: #57636c;
+  --primary-text: #0f1419;
+  --secondary-text: #536471;
 
   /* --- Cor primária do projeto (azul Lebon) --- */
   --primary: #1e3a8a;
-  --primary-hover: #1e40af;
-  --primary-foreground: #ffffff;
+  --primary-hover: #1d4ed8;
+  --primary-light: #3b82f6;
 
   /* --- Bordas e superfícies --- */
-  --border: #e0e3e7;
+  --border: #e5e7eb;
   --border-focus: var(--primary);
 
   /* --- Semânticas --- */
-  --success: #249689;
-  --warning: #f9cf58;
-  --error: #ff5963;
-  --alternate: #e0e3e7;
+  --success: #059669;
+  --warning: #d97706;
+  --error: #dc2626;
+  --alternate: #e5e7eb;
+
+  /* --- Sombras --- */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 
   /* --- Espaçamento padronizado --- */
-  --input-padding-x: 0.75rem;   /* 12px - px-3 */
-  --input-padding-y: 0.625rem;  /* 10px - py-2.5 */
-  --radius: 0.5rem;             /* 8px - rounded-lg */
-  --radius-sm: 0.375rem;        /* 6px - rounded-md */
+  --input-padding-x: 0.75rem;
+  --input-padding-y: 0.625rem;
+  --radius: 8px;
+  --radius-lg: 8px;
+  --radius-xl: 8px;
 
   /* --- Tipografia --- */
   --text-sm: 0.875rem;
   --text-base: 1rem;
   --font-sans: var(--font-inter);
   --font-display: var(--font-inter-tight);
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
 
   /* Compatibilidade */
   --background: var(--primary-background);
@@ -50,7 +59,7 @@
   --color-background: var(--primary-background);
   --color-foreground: var(--primary-text);
   --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-foreground: #ffffff;
   --color-primary-text: var(--primary-text);
   --color-secondary-text: var(--secondary-text);
   --color-success: var(--success);
@@ -60,8 +69,28 @@
   --font-display: var(--font-inter-tight);
 }
 
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 body {
   background: var(--primary-background);
   color: var(--primary-text);
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  line-height: var(--leading-normal);
+  letter-spacing: -0.01em;
+}
+
+/* Transições suaves em interações */
+button:not(:disabled),
+a,
+input,
+select,
+textarea {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
 }

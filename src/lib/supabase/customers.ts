@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 import type { Customer, CustomerFromAPI, GetCustomersResponse } from '@/types/database'
+import { INSTALLMENT_STATUS } from '@/types/enums'
 
 export type GetCustomersParams = {
   companyId: string
@@ -80,22 +81,59 @@ export type GetCustomersAutocompleteParams = {
   search?: string
 }
 
+export type CustomerAutocompleteItem = {
+  id: string
+  label: string
+  person_type: string
+  full_name: string | null
+  legal_name: string | null
+  cpf: string | null
+  cnpj: string | null
+}
+
 export async function getCustomersAutocomplete(
   params: GetCustomersAutocompleteParams
-): Promise<{ id: string; label: string }[]> {
+): Promise<CustomerAutocompleteItem[]> {
   const supabase = createClient()
 
-  const { data, error } = await supabase.rpc('get_customers_autocomplete', {
-    p_company_id: params.companyId,
-    p_search: params.search ?? '',
-  })
+  let query = supabase
+    .from('customers')
+    .select('id, person_type, full_name, legal_name, cpf, cnpj')
+    .eq('company_id', params.companyId)
+    .is('deleted_at', null)
+    .order('full_name', { ascending: true, nullsFirst: false })
+    .limit(20)
+
+  const search = (params.search ?? '').trim()
+  if (search) {
+    query = query.or(
+      `full_name.ilike.%${search}%,legal_name.ilike.%${search}%,cpf.ilike.%${search}%,cnpj.ilike.%${search}%`
+    )
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
-  const list = (data ?? []) as { id?: string; label?: string; full_name?: string }[]
-  return list.map((row) => ({
-    id: row.id ?? row.label ?? '',
-    label: row.label ?? row.full_name ?? String(row.id ?? ''),
-  }))
+  const list = (data ?? []) as {
+    id: string
+    person_type: string
+    full_name: string | null
+    legal_name: string | null
+    cpf: string | null
+    cnpj: string | null
+  }[]
+  return list.map((row) => {
+    const isPJ = row.person_type === 'juridica'
+    return {
+      id: row.id,
+      label: isPJ ? (row.legal_name ?? '') : (row.full_name ?? ''),
+      person_type: row.person_type ?? 'fisica',
+      full_name: row.full_name ?? null,
+      legal_name: row.legal_name ?? null,
+      cpf: row.cpf ?? null,
+      cnpj: row.cnpj ?? null,
+    }
+  })
 }
 
 /** Exclusão lógica: define deleted_at para o cliente (apenas da company informada). */
@@ -117,7 +155,7 @@ export async function deleteCustomer(
 
 /** Endereço para criação (tabela addresses) */
 export type InsertAddressInput = {
-  company_id: string
+  company_id?: string
   street?: string | null
   number?: string | null
   neighbourhood?: string | null
@@ -148,7 +186,6 @@ export type InsertCustomerInput = {
   outstanding_balance?: number | null
   marital_status_id?: number | null
   address?: InsertAddressInput | null
-  [key: string]: unknown
 }
 
 function hasAddressFields(addr: InsertAddressInput | null | undefined): boolean {
@@ -186,15 +223,11 @@ export async function insertCustomer(
   const supabase = createClient()
   let addressId: string | null = null
   if (hasAddressFields(customer.address)) {
-    try {
-      const inserted = await insertAddress({
-        ...customer.address!,
-        company_id: customer.company_id,
-      })
-      addressId = inserted?.id ?? null
-    } catch {
-      // Tabela addresses pode não existir; segue sem address_id
-    }
+    const inserted = await insertAddress({
+      ...customer.address!,
+      company_id: customer.company_id,
+    })
+    addressId = inserted?.id ?? null
   }
   const row: Record<string, unknown> = {
     company_id: customer.company_id,
@@ -303,4 +336,68 @@ export async function updateCustomer(
     .single()
   if (error) throw error
   return updated as Customer
+}
+
+// ──────────────────────────── Outstanding balance ─────────────────
+
+/**
+ * Recalcula o saldo devedor do cliente: soma de (amount - amount_paid)
+ * de todas as parcelas OPEN, PARTIAL ou OVERDUE de contratos ativos.
+ */
+export async function updateCustomerBalance(
+  customerId: string,
+  companyId: string
+): Promise<number> {
+  const supabase = createClient()
+
+  // Get all contracts for this customer
+  const { data: contracts, error: cErr } = await supabase
+    .from('contracts')
+    .select('id')
+    .eq('customer_id', customerId)
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+
+  if (cErr) throw cErr
+
+  const contractIds = (contracts ?? []).map((c) => c.id)
+  if (contractIds.length === 0) {
+    await supabase
+      .from('customers')
+      .update({ outstanding_balance: 0, updated_at: new Date().toISOString() })
+      .eq('id', customerId)
+      .eq('company_id', companyId)
+    return 0
+  }
+
+  // Get all non-settled installments
+  const openStatuses = [
+    INSTALLMENT_STATUS.OPEN,
+    INSTALLMENT_STATUS.PARTIAL,
+    INSTALLMENT_STATUS.OVERDUE,
+  ]
+
+  const { data: installments, error: iErr } = await supabase
+    .from('contract_installments')
+    .select('amount, amount_paid')
+    .in('contract_id', contractIds)
+    .in('status_id', openStatuses)
+    .is('deleted_at', null)
+
+  if (iErr) throw iErr
+
+  const balance = (installments ?? []).reduce(
+    (sum, i) => sum + (Number(i.amount) - Number(i.amount_paid)),
+    0
+  )
+
+  const { error: uErr } = await supabase
+    .from('customers')
+    .update({ outstanding_balance: balance, updated_at: new Date().toISOString() })
+    .eq('id', customerId)
+    .eq('company_id', companyId)
+
+  if (uErr) throw uErr
+
+  return balance
 }

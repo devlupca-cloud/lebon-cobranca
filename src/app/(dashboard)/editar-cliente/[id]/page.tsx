@@ -25,7 +25,7 @@ export default function EditarClientePage() {
     setNotFound(false)
     async function load() {
       try {
-        const customer = await getCustomerById(id)
+        const customer = await getCustomerById(id!)
         if (cancelled || !customer) {
           if (!cancelled) setNotFound(true)
           return

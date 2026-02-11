@@ -3,6 +3,8 @@
 import { LoadingScreen } from '@/components/ui'
 import { getOverdueInstallments } from '@/lib/supabase/installments'
 import type { OverdueInstallmentRow } from '@/lib/supabase/installments'
+import { getOverdueSummary } from '@/lib/supabase/reports'
+import type { OverdueBucket } from '@/lib/supabase/reports'
 import { useCompanyId } from '@/hooks/use-company-id'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
@@ -29,6 +31,7 @@ function daysOverdue(dueDate: string): number {
 export default function InadimplentesPage() {
   const { companyId, loading: companyLoading, error: companyError } = useCompanyId()
   const [rows, setRows] = useState<OverdueInstallmentRow[]>([])
+  const [buckets, setBuckets] = useState<OverdueBucket[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -37,8 +40,12 @@ export default function InadimplentesPage() {
     setLoading(true)
     setError(null)
     try {
-      const list = await getOverdueInstallments(companyId)
+      const [list, summary] = await Promise.all([
+        getOverdueInstallments(companyId),
+        getOverdueSummary(companyId),
+      ])
       setRows(list)
+      setBuckets(summary)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao carregar inadimplentes.')
     } finally {
@@ -119,6 +126,28 @@ export default function InadimplentesPage() {
           <p className="mt-1 text-2xl font-bold">{formatCurrency(totalOverdue)}</p>
         </div>
       </div>
+
+      {/* Faixas de atraso (getOverdueSummary) */}
+      {buckets.length > 0 && (
+        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {buckets.map((b) => (
+            <div
+              key={b.range}
+              className="rounded-[8px] border border-zinc-200 bg-white p-4 shadow-sm"
+            >
+              <p className="text-xs font-medium uppercase text-zinc-500">
+                {b.range} dias em atraso
+              </p>
+              <p className="mt-1 text-lg font-semibold text-zinc-900">
+                {formatCurrency(b.total)}
+              </p>
+              <p className="mt-0.5 text-sm text-zinc-600">
+                {b.count} parcela(s)
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="rounded-[8px] border border-zinc-200 bg-white">
         <div className="border-b border-zinc-200 px-4 py-3">

@@ -13,7 +13,7 @@ export default function DashboardLayout({
       <HeaderProvider>
         <div className="flex min-h-0 flex-1 flex-col min-w-0">
           <DashboardHeader />
-          <main className="min-h-0 flex-1 overflow-auto">{children}</main>
+          <main className="flex min-h-0 flex-1 flex-col overflow-auto">{children}</main>
         </div>
       </HeaderProvider>
     </div>

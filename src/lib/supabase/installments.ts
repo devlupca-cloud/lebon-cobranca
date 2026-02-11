@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
+import { INSTALLMENT_STATUS } from '@/types/enums'
 
 /** Dados aninhados do contrato (nome da relação pode ser "contracts" ou "contract" no Supabase). */
 type ContractRelation = {
@@ -63,8 +64,49 @@ export async function getOverdueInstallments(
 
   if (error) throw error
 
-  const rows = (data ?? []) as OverdueInstallmentRow[]
+  const rows = (data ?? []) as unknown as OverdueInstallmentRow[]
 
   // Apenas parcelas não quitadas (valor em aberto)
   return rows.filter((r) => r.amount_paid < r.amount)
+}
+
+// ──────────────────────────── Update installment ──────────────────
+
+export type UpdateInstallmentInput = {
+  due_date?: string
+  notes?: string | null
+  amount?: number
+}
+
+export async function updateInstallment(
+  installmentId: string,
+  companyId: string,
+  input: UpdateInstallmentInput
+): Promise<void> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('contract_installments')
+    .update(input)
+    .eq('id', installmentId)
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+
+  if (error) throw error
+}
+
+// ──────────────────────────── Cancel installment ──────────────────
+
+export async function cancelInstallment(
+  installmentId: string,
+  companyId: string
+): Promise<void> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('contract_installments')
+    .update({ status_id: INSTALLMENT_STATUS.CANCELED })
+    .eq('id', installmentId)
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+
+  if (error) throw error
 }

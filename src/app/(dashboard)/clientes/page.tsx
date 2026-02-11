@@ -8,8 +8,8 @@ import { deleteCustomer, getCustomers } from '@/lib/supabase/customers'
 import { formatCPFOrCNPJ } from '@/lib/format'
 import { useCompanyId } from '@/hooks/use-company-id'
 import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
-import { MdAdd, MdArrowBack, MdEditDocument, MdPersonOff, MdSearch, MdVisibility } from 'react-icons/md'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { MdAdd, MdArrowBack, MdEdit, MdEditDocument, MdPersonOff, MdSearch, MdVisibility } from 'react-icons/md'
 import { buttonPrimary, buttonSecondary, input, label as labelClass, pageSubtitle, pageTitle, pillType, tableCell, tableCellMuted, tableHead } from '@/lib/design'
 import type { CustomerFromAPI } from '@/types/database'
 
@@ -29,6 +29,23 @@ export default function ClientesPage() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
+  // Debounced search: only fires the RPC after 400ms of inactivity
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [debouncedFilters, setDebouncedFilters] = useState({ name: '', cpf: '', cnpj: '', status: 0 })
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setDebouncedFilters({
+        name: searchName.trim(),
+        cpf: searchCpf.replace(/\D/g, ''),
+        cnpj: searchCnpj.replace(/\D/g, ''),
+        status: statusFilter,
+      })
+    }, 400)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [searchName, searchCpf, searchCnpj, statusFilter])
+
   const fetchCustomers = useCallback(async () => {
     if (!companyId) return
     setLoading(true)
@@ -38,10 +55,10 @@ export default function ClientesPage() {
         companyId,
         limit: 50,
         offset: 0,
-        name: searchName || undefined,
-        cpf: searchCpf || undefined,
-        cnpj: searchCnpj || undefined,
-        statusId: statusFilter === 0 ? null : statusFilter,
+        name: debouncedFilters.name || undefined,
+        cpf: debouncedFilters.cpf || undefined,
+        cnpj: debouncedFilters.cnpj || undefined,
+        statusId: debouncedFilters.status === 0 ? null : debouncedFilters.status,
       })
       setCustomers(list(res.data))
       setTotal(res.total)
@@ -50,7 +67,7 @@ export default function ClientesPage() {
     } finally {
       setLoading(false)
     }
-  }, [companyId, searchName, searchCpf, searchCnpj, statusFilter])
+  }, [companyId, debouncedFilters])
 
   useEffect(() => {
     if (!companyId) return
@@ -62,6 +79,8 @@ export default function ClientesPage() {
     setSearchCpf('')
     setSearchCnpj('')
     setStatusFilter(0)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    setDebouncedFilters({ name: '', cpf: '', cnpj: '', status: 0 })
   }, [])
 
   const handleDelete = useCallback(
@@ -207,16 +226,16 @@ export default function ClientesPage() {
           <div className="overflow-hidden rounded-[8px] border border-[#E0E3E7] bg-white">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-[#E0E3E7]">
-                <thead className="bg-[#f1f4f8]">
+                <thead>
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#57636C]">Código</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#57636C]">Tipo</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#57636C]">CPF/CNPJ</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#57636C]">Nome/Razão Social</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#57636C]">Contato</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#57636C]">Cidade</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase text-[#57636C]">Status</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium uppercase text-[#57636C]">Ações</th>
+                    <th className={tableHead}>Código</th>
+                    <th className={tableHead}>Tipo</th>
+                    <th className={tableHead}>CPF/CNPJ</th>
+                    <th className={tableHead}>Nome/Razão Social</th>
+                    <th className={tableHead}>Contato</th>
+                    <th className={tableHead}>Cidade</th>
+                    <th className={tableHead}>Status</th>
+                    <th className={`${tableHead} text-right`}>Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E0E3E7] bg-white">
@@ -264,12 +283,20 @@ export default function ClientesPage() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <span className="flex justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => { setDetailCustomer(c); setDetailOpen(true) }}
+                              className="rounded p-1.5 text-[#1E3A8A] hover:bg-[#1E3A8A]/10"
+                              title="Ver detalhes"
+                            >
+                              <MdVisibility className="h-5 w-5" />
+                            </button>
                             <Link
                               href={`/editar-cliente/${c.id}`}
                               className="rounded p-1.5 text-[#1E3A8A] hover:bg-[#1E3A8A]/10"
                               title="Editar"
                             >
-                              <MdVisibility className="h-5 w-5" />
+                              <MdEdit className="h-5 w-5" />
                             </Link>
                             <button
                               type="button"

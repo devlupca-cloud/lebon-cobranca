@@ -57,7 +57,6 @@ export const initialForm = {
   legal_name: '',
   trade_name: '',
   cpf: '',
-  rg: '',
   cnpj: '',
   state_registration: '',
   birth_date: '',
@@ -406,12 +405,6 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
                   onChange={(e) => updateForm({ full_name: e.target.value })}
                   placeholder="Nome completo"
                   required
-                />
-                <Input
-                  label="RG"
-                  value={form.rg}
-                  onChange={(e) => updateForm({ rg: e.target.value })}
-                  placeholder="00.000.000-0"
                 />
                 <Input
                   label="Data de nascimento"

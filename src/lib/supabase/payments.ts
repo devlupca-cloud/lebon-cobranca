@@ -1,9 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
-import type { InstallmentPayment, ContractInstallment } from '@/types/database'
-import { INSTALLMENT_STATUS } from '@/types/enums'
-import { checkAndCloseContract } from '@/lib/supabase/contracts'
-import { updateCustomerBalance } from '@/lib/supabase/customers'
-
+import type { InstallmentPayment } from '@/types/database'
 // ──────────────────────────── Types ───────────────────────────────
 
 export type RecordPaymentInput = {
@@ -17,113 +13,57 @@ export type RecordPaymentInput = {
   notes?: string | null
 }
 
-// ──────────────────────────── Record payment ──────────────────────
+// ──────────────────────────── Record payment (RPC única) ──────────────────────
 
+/** Registra pagamento via RPC no Supabase: insert + recalc parcela + fechar contrato + saldo cliente em uma chamada. */
 export async function recordPayment(
   input: RecordPaymentInput
 ): Promise<InstallmentPayment> {
   const supabase = createClient()
 
-  // 1. Insert the payment record
-  const { data: payment, error: payErr } = await supabase
-    .from('installment_payments')
-    .insert({
-      company_id: input.company_id,
-      installment_id: input.installment_id,
-      paid_amount: input.paid_amount,
-      paid_at: input.paid_at ?? new Date().toISOString().split('T')[0],
-      payment_method_id: input.payment_method_id,
-      received_by_user_id: input.received_by_user_id ?? null,
-      reference: input.reference ?? null,
-      notes: input.notes ?? null,
-    })
-    .select()
-    .single()
-
-  if (payErr) throw payErr
-
-  // 2. Recalculate installment totals
-  const installment = await recalculateInstallment(input.installment_id, input.company_id)
-
-  // 3. Check if all installments are paid → close contract
-  if (installment) {
-    await checkAndCloseContract(installment.contract_id, input.company_id)
-
-    // 4. Recalculate customer outstanding balance
-    const { data: contract } = await supabase
-      .from('contracts')
-      .select('customer_id')
-      .eq('id', installment.contract_id)
-      .single()
-
-    if (contract) {
-      await updateCustomerBalance(contract.customer_id, input.company_id)
-    }
+  let receivedByUserId = input.received_by_user_id ?? null
+  if (receivedByUserId == null) {
+    const { data: { user } } = await supabase.auth.getUser()
+    receivedByUserId = user?.id ?? null
+  }
+  if (receivedByUserId == null) {
+    throw new Error('Usuário não autenticado. Não é possível registrar o pagamento.')
   }
 
-  return payment as InstallmentPayment
+  const paidAt = input.paid_at ?? new Date().toISOString().split('T')[0]
+
+  const { data, error } = await supabase.rpc('record_payment', {
+    p_company_id: input.company_id,
+    p_installment_id: input.installment_id,
+    p_paid_amount: input.paid_amount,
+    p_paid_at: paidAt,
+    p_payment_method_id: input.payment_method_id,
+    p_received_by_user_id: receivedByUserId,
+    p_reference: input.reference ?? null,
+    p_notes: input.notes ?? null,
+  })
+
+  if (error) throw error
+  if (data == null) throw new Error('Resposta vazia ao registrar pagamento.')
+
+  return data as InstallmentPayment
 }
 
-// ──────────────────────────── Recalculate installment ─────────────
-
-async function recalculateInstallment(
-  installmentId: string,
-  companyId: string
-): Promise<ContractInstallment | null> {
+/** Quita o contrato: marca todas as parcelas em aberto como pagas (uma RPC no backend) e fecha o contrato. */
+export async function quitContract(
+  contractId: string,
+  companyId: string,
+  paymentMethodId: number = 1
+): Promise<{ payments_count: number; closed: boolean }> {
   const supabase = createClient()
-
-  // Sum all payments for this installment
-  const { data: payments, error: pErr } = await supabase
-    .from('installment_payments')
-    .select('paid_amount')
-    .eq('installment_id', installmentId)
-    .eq('company_id', companyId)
-
-  if (pErr) throw pErr
-
-  const totalPaid = (payments ?? []).reduce(
-    (sum, p) => sum + Number(p.paid_amount),
-    0
-  )
-
-  // Get installment amount
-  const { data: inst, error: iErr } = await supabase
-    .from('contract_installments')
-    .select('*')
-    .eq('id', installmentId)
-    .single()
-
-  if (iErr) throw iErr
-  if (!inst) return null
-
-  const installment = inst as ContractInstallment
-  const amount = Number(installment.amount)
-
-  let statusId: number
-  let paidAt: string | null = null
-
-  if (totalPaid >= amount) {
-    statusId = INSTALLMENT_STATUS.PAID
-    paidAt = new Date().toISOString().split('T')[0]
-  } else if (totalPaid > 0) {
-    statusId = INSTALLMENT_STATUS.PARTIAL
-  } else {
-    statusId = INSTALLMENT_STATUS.OPEN
-  }
-
-  const { error: uErr } = await supabase
-    .from('contract_installments')
-    .update({
-      amount_paid: totalPaid,
-      status_id: statusId,
-      paid_at: paidAt,
-    })
-    .eq('id', installmentId)
-    .eq('company_id', companyId)
-
-  if (uErr) throw uErr
-
-  return { ...installment, amount_paid: totalPaid, status_id: statusId, paid_at: paidAt }
+  const { data, error } = await supabase.rpc('quit_contract', {
+    p_contract_id: contractId,
+    p_company_id: companyId,
+    p_payment_method_id: paymentMethodId,
+  })
+  if (error) throw error
+  if (data == null) throw new Error('Resposta vazia ao quitar contrato.')
+  return data as { payments_count: number; closed: boolean }
 }
 
 // ──────────────────────────── Query payments ──────────────────────
@@ -171,47 +111,15 @@ export async function getPaymentsByContract(
 
 // ──────────────────────────── Delete (reverse) payment ────────────
 
+/** Estorna um pagamento via RPC: uma única chamada (delete + recalc parcela + saldo cliente). */
 export async function deletePayment(
   paymentId: string,
   companyId: string
 ): Promise<void> {
   const supabase = createClient()
-
-  // Get payment to know the installment
-  const { data: payment, error: pErr } = await supabase
-    .from('installment_payments')
-    .select('*')
-    .eq('id', paymentId)
-    .eq('company_id', companyId)
-    .single()
-
-  if (pErr) throw pErr
-  if (!payment) throw new Error('Pagamento não encontrado.')
-
-  const paymentRow = payment as InstallmentPayment
-
-  // Delete the payment record
-  const { error: dErr } = await supabase
-    .from('installment_payments')
-    .delete()
-    .eq('id', paymentId)
-    .eq('company_id', companyId)
-
-  if (dErr) throw dErr
-
-  // Recalculate installment
-  const installment = await recalculateInstallment(paymentRow.installment_id, companyId)
-
-  // Recalculate customer balance
-  if (installment) {
-    const { data: contract } = await supabase
-      .from('contracts')
-      .select('customer_id')
-      .eq('id', installment.contract_id)
-      .single()
-
-    if (contract) {
-      await updateCustomerBalance(contract.customer_id, companyId)
-    }
-  }
+  const { error } = await supabase.rpc('revert_payment', {
+    p_payment_id: paymentId,
+    p_company_id: companyId,
+  })
+  if (error) throw error
 }

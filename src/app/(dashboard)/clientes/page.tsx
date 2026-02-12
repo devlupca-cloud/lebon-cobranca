@@ -134,8 +134,11 @@ export default function ClientesPage() {
       <div className="p-6">
         <h1 className="text-2xl font-semibold text-[#14181B]">Clientes</h1>
         <p className="mt-2 text-amber-600">
-          Configure sua empresa (company_users) para listar clientes.
+          Sua conta não está vinculada a nenhuma empresa. Faça login com um usuário cadastrado em Cadastrar Acesso (com acesso a uma empresa).
         </p>
+        {companyError && (
+          <p className="mt-2 text-sm text-red-600">{companyError.message}</p>
+        )}
       </div>
     )
   }

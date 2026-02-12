@@ -2,29 +2,31 @@
 
 import { Button, Input, Modal } from '@/components/ui'
 import { LoadingScreen } from '@/components/ui'
+import { createCompanyUserWithPassword } from '@/app/(dashboard)/cadastrar-acesso/actions'
 import {
   getCompanyUsers,
-  createCompanyUser,
   updateCompanyUser,
   deactivateCompanyUser,
-  type CreateCompanyUserInput,
   type UpdateCompanyUserInput,
 } from '@/lib/supabase/users'
 import type { CompanyUser } from '@/types/database'
 import { useCompanyId } from '@/hooks/use-company-id'
-import { pageTitle, pageSubtitle, card, tableHead, tableCell, tableCellMuted } from '@/lib/design'
+import { buttonPrimary, card, input, label as labelClass, pageTitle } from '@/lib/design'
 import { useCallback, useEffect, useState } from 'react'
+import { MdEdit, MdPersonOff } from 'react-icons/md'
 
 export default function CadastrarAcessoPage() {
   const { companyId, loading: companyLoading, error: companyError } = useCompanyId()
   const [users, setUsers] = useState<CompanyUser[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [createOpen, setCreateOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState({ name: '', email: '', role: '' })
+  const [createName, setCreateName] = useState('')
+  const [createEmail, setCreateEmail] = useState('')
+  const [editForm, setEditForm] = useState({ name: '', email: '', role: '' })
   const [submitLoading, setSubmitLoading] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [createSuccessPassword, setCreateSuccessPassword] = useState<string | null>(null)
 
   const fetchUsers = useCallback(async () => {
     if (!companyId) return
@@ -45,14 +47,8 @@ export default function CadastrarAcessoPage() {
     fetchUsers()
   }, [companyId, fetchUsers])
 
-  const openCreate = () => {
-    setForm({ name: '', email: '', role: '' })
-    setFormError(null)
-    setCreateOpen(true)
-  }
-
   const openEdit = (u: CompanyUser) => {
-    setForm({
+    setEditForm({
       name: u.name ?? '',
       email: u.email ?? '',
       role: u.role ?? '',
@@ -61,8 +57,7 @@ export default function CadastrarAcessoPage() {
     setEditingId(u.id)
   }
 
-  const closeModals = () => {
-    setCreateOpen(false)
+  const closeEditModal = () => {
     setEditingId(null)
     setFormError(null)
   }
@@ -70,22 +65,25 @@ export default function CadastrarAcessoPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!companyId) return
-    if (!form.name.trim() || !form.email.trim()) {
-      setFormError('Nome e e-mail são obrigatórios.')
+    const name = createName.trim()
+    const email = createEmail.trim()
+    if (!name || !email) {
+      setFormError('Nome completo e e-mail são obrigatórios.')
       return
     }
     setSubmitLoading(true)
     setFormError(null)
     try {
-      const input: CreateCompanyUserInput = {
-        company_id: companyId,
-        name: form.name.trim(),
-        email: form.email.trim(),
-        role: form.role.trim() || null,
+      setCreateSuccessPassword(null)
+      const result = await createCompanyUserWithPassword(companyId, name, email, null)
+      if (result.ok) {
+        setCreateName('')
+        setCreateEmail('')
+        setCreateSuccessPassword(result.temporaryPassword)
+        await fetchUsers()
+      } else {
+        setFormError(result.error)
       }
-      await createCompanyUser(input)
-      closeModals()
-      await fetchUsers()
     } catch (e) {
       setFormError(e instanceof Error ? e.message : 'Erro ao criar acesso.')
     } finally {
@@ -96,20 +94,20 @@ export default function CadastrarAcessoPage() {
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!companyId || !editingId) return
-    if (!form.name.trim() || !form.email.trim()) {
+    if (!editForm.name.trim() || !editForm.email.trim()) {
       setFormError('Nome e e-mail são obrigatórios.')
       return
     }
     setSubmitLoading(true)
     setFormError(null)
     try {
-      const input: UpdateCompanyUserInput = {
-        name: form.name.trim(),
-        email: form.email.trim(),
-        role: form.role.trim() || null,
+      const payload: UpdateCompanyUserInput = {
+        name: editForm.name.trim(),
+        email: editForm.email.trim(),
+        role: editForm.role.trim() || null,
       }
-      await updateCompanyUser(editingId, companyId, input)
-      closeModals()
+      await updateCompanyUser(editingId, companyId, payload)
+      closeEditModal()
       await fetchUsers()
     } catch (e) {
       setFormError(e instanceof Error ? e.message : 'Erro ao atualizar.')
@@ -118,16 +116,23 @@ export default function CadastrarAcessoPage() {
     }
   }
 
-  const handleDeactivate = async (user: CompanyUser) => {
+  const handleRemoverAcesso = async (user: CompanyUser) => {
     if (!companyId) return
-    if (!confirm(`Desativar o acesso de ${user.name ?? user.email}?`)) return
+    const nome = user.name ?? user.email ?? 'este usuário'
+    if (
+      !confirm(
+        `Remover o acesso de ${nome}? Essa pessoa não poderá mais acessar a plataforma com esta empresa.`
+      )
+    )
+      return
     setSubmitLoading(true)
     setError(null)
     try {
       await deactivateCompanyUser(user.id, companyId)
+      closeEditModal()
       await fetchUsers()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao desativar.')
+      setError(e instanceof Error ? e.message : 'Erro ao remover acesso.')
     } finally {
       setSubmitLoading(false)
     }
@@ -139,142 +144,169 @@ export default function CadastrarAcessoPage() {
       <div className="p-6">
         <h1 className={pageTitle}>Cadastrar Acesso</h1>
         <p className="mt-2 text-amber-600">
-          Configure sua empresa (company_users) para acessar esta tela.
+          Sua conta não está vinculada a nenhuma empresa, ou ocorreu um erro ao carregar. Faça login com um usuário que já tenha acesso a uma empresa (cadastrado em Cadastrar Acesso).
         </p>
+        {companyError && (
+          <p className="mt-2 text-sm text-red-600">{companyError.message}</p>
+        )}
       </div>
     )
   }
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className={pageTitle}>Cadastrar Acesso</h1>
-          <p className={pageSubtitle}>
-            Usuários com acesso à empresa
-          </p>
-        </div>
-        <Button type="button" variant="primary" onClick={openCreate}>
-          Novo acesso
-        </Button>
-      </div>
+      <h1 className={pageTitle}>Cadastrar Acesso</h1>
 
       {error && (
-        <div className="mb-4 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+        <div className="mt-4 rounded-[8px] border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
           {error}
         </div>
       )}
 
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#1E3A8A] border-t-transparent" />
-        </div>
-      ) : (
-        <div className={card + ' overflow-hidden'}>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-[#E0E3E7]">
-              <thead>
-                <tr className={tableHead}>
-                  <th className="px-4 py-3 text-left">Nome</th>
-                  <th className="px-4 py-3 text-left">E-mail</th>
-                  <th className="px-4 py-3 text-left">Função</th>
-                  <th className="px-4 py-3 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E0E3E7] bg-white">
-                {users.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-[#57636C]">
-                      Nenhum usuário com acesso ativo.
-                    </td>
-                  </tr>
-                ) : (
-                  users.map((u) => (
-                    <tr key={u.id} className="hover:bg-[#f1f4f8]">
-                      <td className={tableCell}>{u.name ?? '—'}</td>
-                      <td className={tableCellMuted}>{u.email ?? '—'}</td>
-                      <td className={tableCellMuted}>{u.role ?? '—'}</td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="flex justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => openEdit(u)}
-                            className="font-medium text-[#1E3A8A] hover:underline"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeactivate(u)}
-                            disabled={submitLoading}
-                            className="font-medium text-red-600 hover:underline disabled:opacity-50"
-                          >
-                            Desativar
-                          </button>
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Criar */}
-      <Modal
-        open={createOpen}
-        onClose={closeModals}
-        title="Novo acesso"
-        footer={
-          <>
-            <Button type="button" variant="secondary" onClick={closeModals}>
-              Cancelar
-            </Button>
-            <Button type="submit" form="form-create" disabled={submitLoading}>
-              {submitLoading ? 'Salvando...' : 'Criar'}
-            </Button>
-          </>
-        }
-      >
-        <form id="form-create" onSubmit={handleCreate} className="space-y-4">
-          {formError && (
-            <div className="rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+      {/* Card Novo Cadastro */}
+      <div className={card + ' mt-6 p-6'}>
+        <h2 className="text-center text-lg font-semibold text-[#14181B]">
+          Novo Cadastro
+        </h2>
+        <form onSubmit={handleCreate} className="mx-auto mt-6 max-w-md space-y-4">
+          {formError && !editingId && (
+            <div className="rounded-[8px] border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
               {formError}
             </div>
           )}
-          <Input
-            label="Nome"
-            value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+          <input
+            type="text"
+            className={input}
+            placeholder="Nome completo"
+            value={createName}
+            onChange={(e) => setCreateName(e.target.value)}
             required
+            aria-label="Nome completo"
           />
-          <Input
-            label="E-mail"
+          <input
             type="email"
-            value={form.email}
-            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+            className={input}
+            placeholder="Email"
+            value={createEmail}
+            onChange={(e) => setCreateEmail(e.target.value)}
             required
+            aria-label="Email"
           />
-          <Input
-            label="Função (opcional)"
-            value={form.role}
-            onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
-          />
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={submitLoading}
+            className={buttonPrimary + ' w-full'}
+          >
+            {submitLoading ? 'Cadastrando...' : 'Cadastrar'}
+          </Button>
+          {createSuccessPassword && (
+            <div
+              className="rounded-[8px] border border-[#249689]/40 bg-[#249689]/10 px-4 py-3 text-sm text-[#14181B]"
+              role="status"
+            >
+              <p className="font-medium text-[#249689]">Usuário criado com sucesso.</p>
+              <p className="mt-1">
+                Senha padrão: <strong className="font-mono">{createSuccessPassword}</strong>
+              </p>
+              <p className="mt-1 text-[#57636C]">
+                Envie essa senha ao usuário e peça que ele troque no primeiro acesso (Perfil).
+              </p>
+              <button
+                type="button"
+                onClick={() => setCreateSuccessPassword(null)}
+                className="mt-2 text-sm font-medium text-[#1E3A8A] hover:underline"
+              >
+                Fechar
+              </button>
+            </div>
+          )}
         </form>
-      </Modal>
+      </div>
+
+      {/* Card Usuários Cadastrados */}
+      <div className={card + ' mt-6 overflow-hidden'}>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E0E3E7] px-5 py-4">
+          <h2 className="text-lg font-semibold text-[#14181B]">
+            Usuários Cadastrados
+          </h2>
+          <span className="text-sm text-[#57636C]">Total: {users.length}</span>
+        </div>
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#1E3A8A] border-t-transparent" />
+          </div>
+        ) : users.length === 0 ? (
+          <p className="px-5 py-8 text-center text-sm text-[#57636C]">
+            Nenhum usuário cadastrado.
+          </p>
+        ) : (
+          <ul className="divide-y divide-[#E0E3E7]">
+            {users.map((u) => (
+              <li
+                key={u.id}
+                className="flex flex-wrap items-center justify-between gap-2 px-5 py-4 hover:bg-[#f8fafc]"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-[#14181B]">
+                    {u.name ?? '—'}
+                  </p>
+                  <p className="mt-0.5 text-sm text-[#57636C]">{u.email ?? '—'}</p>
+                  {u.role != null && u.role.trim() !== '' && (
+                    <p className="mt-0.5 text-sm text-[#57636C]">
+                      Função: {u.role}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => openEdit(u)}
+                    className="rounded-[8px] p-2 text-[#57636C] transition hover:bg-[#f1f4f8] hover:text-[#1E3A8A]"
+                    aria-label={`Editar ${u.name ?? u.email}`}
+                  >
+                    <MdEdit className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoverAcesso(u)}
+                    disabled={submitLoading}
+                    className="rounded-[8px] p-2 text-[#57636C] transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                    aria-label={`Remover acesso de ${u.name ?? u.email}`}
+                    title="Remover acesso"
+                  >
+                    <MdPersonOff className="h-5 w-5" />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       {/* Modal Editar */}
       <Modal
         open={!!editingId}
-        onClose={closeModals}
+        onClose={closeEditModal}
         title="Editar acesso"
         footer={
           <>
-            <Button type="button" variant="secondary" onClick={closeModals}>
+            <Button type="button" variant="secondary" onClick={closeEditModal}>
               Cancelar
             </Button>
+            {editingId && (
+              <button
+                type="button"
+                onClick={() => {
+                  const u = users.find((x) => x.id === editingId)
+                  if (u) handleRemoverAcesso(u)
+                }}
+                disabled={submitLoading}
+                className="rounded-[8px] border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+              >
+                Remover acesso
+              </button>
+            )}
             <Button type="submit" form="form-edit" disabled={submitLoading}>
               {submitLoading ? 'Salvando...' : 'Salvar'}
             </Button>
@@ -283,28 +315,49 @@ export default function CadastrarAcessoPage() {
       >
         <form id="form-edit" onSubmit={handleUpdate} className="space-y-4">
           {formError && (
-            <div className="rounded border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+            <div className="rounded-[8px] border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
               {formError}
             </div>
           )}
-          <Input
-            label="Nome"
-            value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            required
-          />
-          <Input
-            label="E-mail"
-            type="email"
-            value={form.email}
-            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-            required
-          />
-          <Input
-            label="Função (opcional)"
-            value={form.role}
-            onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
-          />
+          <div>
+            <label htmlFor="edit-name" className={labelClass}>
+              Nome completo
+            </label>
+            <Input
+              id="edit-name"
+              value={editForm.name}
+              onChange={(e) =>
+                setEditForm((f) => ({ ...f, name: e.target.value }))
+              }
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="edit-email" className={labelClass}>
+              Email
+            </label>
+            <Input
+              id="edit-email"
+              type="email"
+              value={editForm.email}
+              onChange={(e) =>
+                setEditForm((f) => ({ ...f, email: e.target.value }))
+              }
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="edit-role" className={labelClass}>
+              Função (opcional)
+            </label>
+            <Input
+              id="edit-role"
+              value={editForm.role}
+              onChange={(e) =>
+                setEditForm((f) => ({ ...f, role: e.target.value }))
+              }
+            />
+          </div>
         </form>
       </Modal>
     </div>

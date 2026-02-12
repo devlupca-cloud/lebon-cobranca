@@ -43,7 +43,7 @@ export async function getContractById(
     .from('contracts')
     .select(`
       *,
-      customers ( id, full_name, cpf, cnpj ),
+      customer:customers ( id, full_name, legal_name, trade_name, cpf, cnpj, person_type ),
       contract_statuses ( id, name ),
       contract_categories ( id, name ),
       contract_types ( id, name )
@@ -59,7 +59,7 @@ export async function getContractById(
   const raw = data as Record<string, unknown>
   return {
     ...(raw as unknown as Contract),
-    customer: raw.customers as ContractWithRelations['customer'],
+    customer: (raw.customer ?? raw.customers) as ContractWithRelations['customer'],
     status: raw.contract_statuses as ContractWithRelations['status'],
     category: raw.contract_categories as ContractWithRelations['category'],
     contract_type: raw.contract_types as ContractWithRelations['contract_type'],
@@ -86,7 +86,7 @@ export async function getContractsFiltered(
     .from('contracts')
     .select(`
       *,
-      customers ( id, full_name, cpf, cnpj ),
+      customer:customers ( id, full_name, legal_name, trade_name, cpf, cnpj, person_type ),
       contract_statuses ( id, name ),
       contract_categories ( id, name ),
       contract_types ( id, name )
@@ -123,7 +123,7 @@ export async function getContractsFiltered(
 
   const rows = (data ?? []).map((raw: Record<string, unknown>) => ({
     ...(raw as unknown as Contract),
-    customer: raw.customers as ContractWithRelations['customer'],
+    customer: (raw.customer ?? raw.customers) as ContractWithRelations['customer'],
     status: raw.contract_statuses as ContractWithRelations['status'],
     category: raw.contract_categories as ContractWithRelations['category'],
     contract_type: raw.contract_types as ContractWithRelations['contract_type'],
@@ -299,24 +299,38 @@ export async function activateContract(
 
 // ──────────────────────────── Close contract ──────────────────────
 
+/** Fecha o contrato se todas as parcelas ativas estiverem pagas. Uma única query de count em vez de buscar todas as parcelas. */
 export async function checkAndCloseContract(
   contractId: string,
   companyId: string
 ): Promise<boolean> {
-  const installments = await getInstallmentsByContract(contractId)
-  const active = installments.filter(
-    (i) => i.status_id !== INSTALLMENT_STATUS.CANCELED
-  )
+  const supabase = createClient()
 
-  const allPaid = active.length > 0 && active.every(
-    (i) => i.status_id === INSTALLMENT_STATUS.PAID
-  )
+  const { count: activeCount, error: e1 } = await supabase
+    .from('contract_installments')
+    .select('*', { count: 'exact', head: true })
+    .eq('contract_id', contractId)
+    .neq('status_id', INSTALLMENT_STATUS.CANCELED)
+    .is('deleted_at', null)
 
-  if (allPaid) {
-    await updateContract(contractId, companyId, {
-      status_id: CONTRACT_STATUS.CLOSED,
-    })
-    return true
-  }
-  return false
+  if (e1 || activeCount == null) return false
+
+  if (activeCount === 0) return false
+
+  const { count: paidCount, error: e2 } = await supabase
+    .from('contract_installments')
+    .select('*', { count: 'exact', head: true })
+    .eq('contract_id', contractId)
+    .eq('status_id', INSTALLMENT_STATUS.PAID)
+    .is('deleted_at', null)
+
+  if (e2 || paidCount == null) return false
+
+  const allPaid = activeCount > 0 && activeCount === paidCount
+  if (!allPaid) return false
+
+  await updateContract(contractId, companyId, {
+    status_id: CONTRACT_STATUS.CLOSED,
+  })
+  return true
 }

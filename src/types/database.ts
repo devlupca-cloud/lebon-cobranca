@@ -72,7 +72,15 @@ export type Contract = {
 
 /** Contrato com joins (retorno de get_contracts RPC ou queries com select expandido) */
 export type ContractWithRelations = Contract & {
-  customer?: { id: string; full_name: string | null; cpf: string | null; cnpj: string | null } | null
+  customer?: {
+    id: string
+    full_name: string | null
+    legal_name: string | null
+    trade_name: string | null
+    cpf: string | null
+    cnpj: string | null
+    person_type?: string
+  } | null
   guarantor?: { id: string; full_name: string | null; cpf: string | null; cnpj: string | null } | null
   status?: { id: number; name: string } | null
   category?: { id: number; name: string } | null

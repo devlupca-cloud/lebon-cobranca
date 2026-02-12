@@ -84,7 +84,12 @@ function getDueDay(firstDueDate: string | null): string {
 
 // ──────────────────────────── PDF Generator ─────────────────────
 
-export function generateContractPdf(data: ContractPdfData): void {
+export type GenerateContractPdfOptions = { returnBlob?: boolean }
+
+export function generateContractPdf(
+  data: ContractPdfData,
+  options?: GenerateContractPdfOptions
+): void | { blob: Blob; filename: string } {
   const { contract, customer, address } = data
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
 
@@ -468,10 +473,14 @@ export function generateContractPdf(data: ContractPdfData): void {
     addFooter()
   }
 
-  // Download
   const safeName = (customer.full_name ?? 'contrato')
     .replace(/[^a-zA-Z0-9\s]/g, '')
     .replace(/\s+/g, '_')
   const contractNum = contract.contract_number ?? 'sem_numero'
-  doc.save(`Contrato_${safeName}_${contractNum}.pdf`)
+  const filename = `Contrato_${safeName}_${contractNum}.pdf`
+
+  if (options?.returnBlob) {
+    return { blob: doc.output('blob') as Blob, filename }
+  }
+  doc.save(filename)
 }

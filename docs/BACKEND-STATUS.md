@@ -28,7 +28,22 @@ Documento de referência do que já foi implementado e do que falta (incluindo p
 
 ## O que você precisa fazer no Supabase (Dashboard)
 
-### 0. Coluna Fiador na tabela `contracts`
+### 0. Job diário: parcelas atrasadas (pg_cron)
+
+Para marcar parcelas vencidas como **atrasado** (OVERDUE) todo dia no backend:
+
+1. No Supabase: **Integrations → Cron** (ou Database → Extensions) e **habilite pg_cron**.
+2. Rode a migration que agenda o job (`20250211000008_cron_mark_overdue.sql`) ou no **SQL Editor**:
+   ```sql
+   SELECT cron.schedule(
+     'mark-overdue-installments',
+     '0 6 * * *',
+     $$SELECT public.mark_overdue_installments()$$
+   );
+   ```
+   Isso executa `mark_overdue_installments()` todo dia às 6h.
+
+### 1. Coluna Fiador na tabela `contracts`
 
 Para o cadastro de **fiador** no novo contrato, a tabela `contracts` precisa da coluna `guarantor_customer_id`. No **SQL Editor** do Supabase, rode:
 
@@ -42,7 +57,7 @@ COMMENT ON COLUMN public.contracts.guarantor_customer_id IS 'Cliente cadastrado 
 
 Se a tabela `customers` estiver em outro schema, ajuste `public.customers(id)` conforme seu banco.
 
-### 1. Conferir RLS na tabela `installment_payments`
+### 2. Conferir RLS na tabela `installment_payments`
 
 No **SQL Editor** do Supabase, rode:
 
@@ -63,7 +78,7 @@ WHERE tablename = 'installment_payments';
 - Se `rowsecurity = true` e já existir uma policy que use `company_id` e `company_users` (por exemplo `company_id IN (SELECT company_id FROM company_users WHERE user_id = auth.uid() AND is_active = true)`), **não precisa fazer nada**.
 - Se RLS não estiver habilitado ou não houver policy, rode o bloco abaixo.
 
-### 2. Habilitar RLS e criar policy (se ainda não existir)
+### 3. Habilitar RLS e criar policy (se ainda não existir)
 
 ```sql
 ALTER TABLE public.installment_payments ENABLE ROW LEVEL SECURITY;

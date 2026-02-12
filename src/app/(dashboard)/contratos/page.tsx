@@ -13,7 +13,7 @@ import { input, label as labelClass, pageTitle, pageSubtitle, tableHead, tableCe
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ContractWithRelations } from '@/types/database'
-import { MdDescription, MdReceipt, MdSearch } from 'react-icons/md'
+import { MdDescription, MdEdit, MdReceipt, MdSearch, MdVisibility } from 'react-icons/md'
 
 const PAGE_SIZE = 20
 
@@ -52,6 +52,15 @@ const STATUS_BADGE_CLASS: Record<number, string> = {
   [CONTRACT_STATUS.ACTIVE]: 'bg-[#249689]/15 text-[#249689]',
   [CONTRACT_STATUS.CLOSED]: 'bg-[#14181B] text-white',
   [CONTRACT_STATUS.CANCELED]: 'bg-red-100 text-red-700',
+}
+
+/** Nome do cliente para exibição: PF usa full_name; PJ usa trade_name ou legal_name. Ignora string vazia; se tudo vazio, mostra CPF/CNPJ. */
+function getCustomerDisplayName(customer: ContractWithRelations['customer']): string {
+  if (!customer) return '—'
+  const name = [customer.full_name, customer.trade_name, customer.legal_name].find((s) => s != null && String(s).trim() !== '')
+  if (name?.trim()) return String(name).trim()
+  const doc = formatCPFOrCNPJ(customer.cpf ?? null, customer.cnpj ?? null)
+  return doc !== '—' ? doc : '—'
 }
 
 export default function ContratosPage() {
@@ -335,7 +344,7 @@ export default function ContratosPage() {
                             {c.contract_number ?? c.id.slice(0, 8)}
                           </p>
                           <p className="mt-0.5 text-sm text-[#57636C]">
-                            {c.customer?.full_name ?? '—'}
+                            {getCustomerDisplayName(c.customer)}
                           </p>
                           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                             <span className="font-medium text-[#1E3A8A]">
@@ -358,6 +367,22 @@ export default function ContratosPage() {
                           </span>
                         </div>
                         <div className="flex shrink-0 gap-1">
+                          <Link
+                            href={`/detalhes-contrato/${c.id}`}
+                            className="rounded p-1.5 text-[#1E3A8A] hover:bg-[#1E3A8A]/10"
+                            title="Ver detalhes"
+                            aria-label="Ver detalhes do contrato"
+                          >
+                            <MdVisibility className="h-5 w-5" />
+                          </Link>
+                          <Link
+                            href={`/editar-contrato/${c.id}`}
+                            className="rounded p-1.5 text-[#1E3A8A] hover:bg-[#1E3A8A]/10"
+                            title="Editar"
+                            aria-label="Editar contrato"
+                          >
+                            <MdEdit className="h-5 w-5" />
+                          </Link>
                           <button
                             type="button"
                             onClick={() => { setSelectedContractId(c.id); setPdfOpen(true) }}
@@ -385,9 +410,9 @@ export default function ContratosPage() {
             </div>
           </div>
 
-          {/* Desktop: tabela — scroll só vertical */}
-          <div className="hidden min-h-0 flex-1 overflow-x-hidden overflow-y-auto md:block">
-            <div className="w-full rounded-[8px] border border-[#E0E3E7] bg-white shadow-sm">
+          {/* Desktop: tabela — scroll horizontal quando necessário para manter botões visíveis */}
+          <div className="hidden min-h-0 flex-1 overflow-x-auto overflow-y-auto md:block">
+            <div className="min-w-[800px] rounded-[8px] border border-[#E0E3E7] bg-white shadow-sm">
               <table className="min-w-full divide-y divide-[#E0E3E7]">
                 <thead>
                   <tr>
@@ -399,7 +424,7 @@ export default function ContratosPage() {
                     <th className={tableHead}>Valor Parcela</th>
                     <th className={tableHead}>Vencimento</th>
                     <th className={tableHead}>Status</th>
-                    <th className={tableHead + ' rounded-tr-[8px] text-right'}>Ações</th>
+                    <th className={tableHead + ' sticky right-0 z-10 rounded-tr-[8px] bg-white text-right shadow-[_-4px_0_8px_-4px_rgba(0,0,0,0.08)]'}>Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E0E3E7] bg-white">
@@ -420,7 +445,7 @@ export default function ContratosPage() {
                             {c.contract_number ?? c.id.slice(0, 8)}
                           </td>
                           <td className={tableCell}>
-                            {c.customer?.full_name ?? '—'}
+                            {getCustomerDisplayName(c.customer)}
                           </td>
                           <td className={tableCellMuted}>
                             {formatCPFOrCNPJ(c.customer?.cpf ?? null, c.customer?.cnpj ?? null)}
@@ -442,8 +467,34 @@ export default function ContratosPage() {
                               {statusLabel}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="sticky right-0 z-10 whitespace-nowrap bg-white px-4 py-3 text-right shadow-[_-4px_0_8px_-4px_rgba(0,0,0,0.08)]">
                             <span className="flex justify-end gap-1">
+                              <span className="relative group">
+                                <Link
+                                  href={`/detalhes-contrato/${c.id}`}
+                                  className="rounded p-1.5 text-[#1E3A8A] hover:bg-[#1E3A8A]/10 inline-flex"
+                                  title="Ver detalhes"
+                                  aria-label="Ver detalhes do contrato"
+                                >
+                                  <MdVisibility className="h-5 w-5" />
+                                </Link>
+                                <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-[8px] border border-[#E0E3E7] bg-white px-2.5 py-1.5 text-xs text-[#57636C] opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100">
+                                  Ver detalhes
+                                </span>
+                              </span>
+                              <span className="relative group">
+                                <Link
+                                  href={`/editar-contrato/${c.id}`}
+                                  className="rounded p-1.5 text-[#1E3A8A] hover:bg-[#1E3A8A]/10 inline-flex"
+                                  title="Editar contrato"
+                                  aria-label="Editar contrato"
+                                >
+                                  <MdEdit className="h-5 w-5" />
+                                </Link>
+                                <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-[8px] border border-[#E0E3E7] bg-white px-2.5 py-1.5 text-xs text-[#57636C] opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100">
+                                  Editar contrato
+                                </span>
+                              </span>
                               <span className="relative group">
                                 <button
                                   type="button"

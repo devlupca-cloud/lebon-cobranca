@@ -193,3 +193,21 @@ export type CompanyUser = {
   is_active: boolean
   created_at: string
 }
+
+// ──────────────────────────── Contas a pagar (company_expenses) ────────────────────────────
+
+export type CompanyExpense = {
+  id: string
+  company_id: string
+  payee_name: string
+  amount: number
+  due_date: string
+  expense_type: string
+  notes: string | null
+  title: string | null
+  contact_name: string | null
+  payment_date: string | null
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}

@@ -3,15 +3,17 @@
 import { Button } from '@/components/ui'
 import { LoadingScreen } from '@/components/ui'
 import { useCompanyId } from '@/hooks/use-company-id'
-import { createExpense } from '@/lib/supabase/expenses'
+import { getExpenseById, updateExpense } from '@/lib/supabase/expenses'
 import { buttonPrimary, buttonSecondary, card, input, label as labelClass, pageTitle } from '@/lib/design'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { useCallback, useEffect, useState } from 'react'
 import { MdDescription } from 'react-icons/md'
 
-export default function CadastrarFluxoDeCaixaPage() {
+export default function EditarFluxoPage() {
+  const params = useParams()
   const router = useRouter()
+  const id = typeof params.id === 'string' ? params.id : ''
   const { companyId, loading: companyLoading, error: companyError } = useCompanyId()
   const [empresa, setEmpresa] = useState('')
   const [nome, setNome] = useState('')
@@ -20,12 +22,42 @@ export default function CadastrarFluxoDeCaixaPage() {
   const [valor, setValor] = useState('')
   const [dataVencimento, setDataVencimento] = useState('')
   const [diaPagamento, setDiaPagamento] = useState('')
+  const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const fetchExpense = useCallback(async () => {
+    if (!companyId || !id) return
+    setLoading(true)
+    setError(null)
+    try {
+      const row = await getExpenseById(id, companyId)
+      if (row) {
+        setEmpresa(row.payee_name)
+        setNome(row.contact_name ?? '')
+        setTitulo(row.title ?? '')
+        setDescricao(row.notes ?? '')
+        setValor(String(row.amount).replace('.', ','))
+        setDataVencimento(row.due_date?.slice(0, 10) ?? '')
+        setDiaPagamento(row.payment_date?.slice(0, 10) ?? '')
+      } else {
+        setError('Conta não encontrada.')
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro ao carregar.')
+    } finally {
+      setLoading(false)
+    }
+  }, [companyId, id])
+
+  useEffect(() => {
+    if (!companyId || !id) return
+    fetchExpense()
+  }, [companyId, id, fetchExpense])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!companyId) return
+    if (!companyId || !id) return
     const payeeName = empresa.trim()
     const value = parseFloat(String(valor).replace(',', '.'))
     if (!payeeName) {
@@ -43,8 +75,7 @@ export default function CadastrarFluxoDeCaixaPage() {
     setSubmitting(true)
     setError(null)
     try {
-      await createExpense({
-        company_id: companyId,
+      await updateExpense(id, companyId, {
         payee_name: payeeName,
         amount: value,
         due_date: dataVencimento.slice(0, 10),
@@ -56,20 +87,29 @@ export default function CadastrarFluxoDeCaixaPage() {
       })
       router.push('/fluxo-caixa')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao cadastrar.')
+      setError(e instanceof Error ? e.message : 'Erro ao salvar.')
     } finally {
       setSubmitting(false)
     }
   }
 
-  if (companyLoading) return <LoadingScreen message="Carregando..." />
+  if (companyLoading || loading) return <LoadingScreen message="Carregando..." />
   if (companyError || !companyId) {
     return (
       <div className="p-6">
         <h1 className={pageTitle}>Fluxo de Caixa</h1>
-        <p className="mt-2 text-amber-600">
-          Sua conta não está vinculada a nenhuma empresa.
-        </p>
+        <p className="mt-2 text-amber-600">Sua conta não está vinculada a nenhuma empresa.</p>
+      </div>
+    )
+  }
+
+  if (!id) {
+    return (
+      <div className="p-6">
+        <p className="text-red-600">ID inválido.</p>
+        <Link href="/fluxo-caixa" className={buttonSecondary + ' mt-4 inline-flex'}>
+          Voltar
+        </Link>
       </div>
     )
   }

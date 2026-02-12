@@ -55,6 +55,23 @@ Aplicação web para gestão de cobranças – Next.js, React, Supabase, Tailwin
 
    Acesse [http://localhost:3000](http://localhost:3000).
 
+5. **Dados de exemplo (seed)**
+
+   Para ver todas as telas com dados (Dashboard, Clientes, Contratos, Inadimplentes, Fluxo de caixa, etc.):
+
+   - **Pré-requisito:** faça login na aplicação e vincule sua conta a uma empresa em **Cadastrar Acesso** (assim existirá uma linha em `company_users` com `company_id`).
+   - **Local (Supabase CLI):** `npx supabase db reset` aplica as migrations e em seguida executa `supabase/seed.sql`.
+   - **Supabase hospedado:** no Dashboard do projeto, abra **SQL Editor**, cole o conteúdo de `supabase/seed.sql` e execute. O script usa o primeiro `company_id` de `company_users`; os dados ficarão visíveis para usuários vinculados a essa empresa.
+
+   O seed insere: 8 endereços (se a tabela existir), 8 clientes (PF/PJ, códigos, telefones, etc.), 5 contratos (um com fiador), parcelas, pagamentos e 7 despesas.
+
+   **Apagar os dados atuais e preencher de novo (mantendo seu usuário):**
+
+   1. No **SQL Editor** do Supabase, execute primeiro o script **`supabase/clean-data.sql`**. Ele remove apenas os dados da empresa vinculada ao usuário **devlup@devlup.ca** (pagamentos, parcelas, contratos, despesas, clientes, endereços). Não mexe em `auth.users` nem em `company_users`, então seu login continua válido.
+   2. Em seguida execute o **`supabase/seed.sql`**. Ele preenche de novo a mesma empresa (a primeira ativa em `company_users`).
+
+   Se você usa outro e-mail, edite em `clean-data.sql` a linha `WHERE u.email = 'devlup@devlup.ca'` e coloque seu e-mail.
+
 ---
 
 ## Scripts

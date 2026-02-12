@@ -235,7 +235,7 @@ export default function GerarDocumentosPage() {
   if (companyError) {
     return (
       <div className="p-6">
-        <p className="text-sm text-red-600">{companyError}</p>
+        <p className="text-sm text-red-600">{companyError.message}</p>
       </div>
     )
   }

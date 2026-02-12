@@ -2,10 +2,20 @@ import { createClient } from '@/lib/supabase/client'
 import { INSTALLMENT_STATUS } from '@/types/enums'
 
 /** Dados aninhados do contrato (nome da relação pode ser "contracts" ou "contract" no Supabase). */
-type ContractRelation = {
+export type ContractRelation = {
   contract_number: string | null
   customer_id: string
-  customers: { full_name: string | null } | null
+  contract_amount: number | null
+  installment_amount: number | null
+  installments_count?: number
+  total_installments?: number | null
+  customers: {
+    full_name: string | null
+    legal_name: string | null
+    cpf: string | null
+    cnpj: string | null
+    person_type?: string
+  } | null
 }
 
 /** Parcela vencida com dados do contrato e do cliente (para tela Inadimplentes). */
@@ -51,8 +61,16 @@ export async function getOverdueInstallments(
       contracts (
         contract_number,
         customer_id,
+        contract_amount,
+        installment_amount,
+        installments_count,
+        total_installments,
         customers (
-          full_name
+          full_name,
+          legal_name,
+          cpf,
+          cnpj,
+          person_type
         )
       )
     `

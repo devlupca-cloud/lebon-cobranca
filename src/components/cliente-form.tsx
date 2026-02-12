@@ -12,6 +12,7 @@ import {
 } from '@/lib/design'
 import { getCompanyId } from '@/lib/supabase/company'
 import { insertCustomer, updateCustomer } from '@/lib/supabase/customers'
+import { uploadCustomerFile } from '@/lib/supabase/files'
 import type { Customer } from '@/types/database'
 import type { AddressRow } from '@/lib/supabase/customers'
 import {
@@ -159,7 +160,7 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
 
   function digitsToReaisCents(digits: string): string {
     if (!digits) return ''
-    let intPart = digits.length <= 2 ? '0' : digits.slice(0, -2).replace(/^0+/, '') || '0'
+    const intPart = digits.length <= 2 ? '0' : digits.slice(0, -2).replace(/^0+/, '') || '0'
     const decPart = digits.length <= 2 ? digits.padStart(2, '0') : digits.slice(-2)
     return `${intPart},${decPart}`
   }
@@ -282,16 +283,31 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
     setLoading(true)
     try {
       const payload = buildPayload()
+      let savedCustomerId: string
       if (mode === 'edit' && customerId) {
         await updateCustomer(customerId, companyId, payload)
+        savedCustomerId = customerId
       } else {
-        await insertCustomer({
+        const created = await insertCustomer({
           ...payload,
           company_id: companyId,
           address: payload.address
             ? { ...payload.address, company_id: companyId }
             : null,
         })
+        savedCustomerId = created.id
+      }
+      for (let i = 0; i < form.images.length; i++) {
+        const file = form.images[i]
+        if (file instanceof File && file.size > 0) {
+          await uploadCustomerFile(
+            savedCustomerId,
+            companyId,
+            file,
+            i + 1,
+            IMAGE_LABELS[i] ?? null
+          )
+        }
       }
       router.push('/clientes')
       router.refresh()

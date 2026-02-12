@@ -23,6 +23,132 @@ export type OverdueBucket = {
   total: number
 }
 
+export type DashboardStats = {
+  totalCustomers: number
+  activeContracts: number
+  totalValue: number
+  newThisMonth: number
+  /** Comparação com mês anterior para exibir % (pode ser null se não houver dado) */
+  customersChangePercent: number | null
+  activeContractsChangePercent: number | null
+  totalValueChangePercent: number | null
+  newThisMonthChangePercent: number | null
+}
+
+// ──────────────────────────── Dashboard stats ─────────────────────
+
+export async function getDashboardStats(
+  companyId: string
+): Promise<DashboardStats> {
+  const supabase = createClient()
+  const now = new Date()
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    .toISOString()
+    .slice(0, 10)
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    .toISOString()
+    .slice(0, 10)
+
+  const [
+    { count: totalCustomers },
+    { count: totalCustomersPrev },
+    summary,
+    { count: activeCount },
+    { count: activeCountPrev },
+    { count: newThisMonth },
+    { count: newPrevMonth },
+  ] = await Promise.all([
+    supabase
+      .from('customers')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .is('deleted_at', null),
+    supabase
+      .from('customers')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .lt('created_at', thisMonthStart),
+    getFinancialSummary(companyId),
+    supabase
+      .from('contracts')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .eq('status_id', CONTRACT_STATUS.ACTIVE)
+      .is('deleted_at', null),
+    supabase
+      .from('contracts')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .eq('status_id', CONTRACT_STATUS.ACTIVE)
+      .is('deleted_at', null)
+      .lt('created_at', thisMonthStart),
+    supabase
+      .from('contracts')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .gte('created_at', thisMonthStart),
+    supabase
+      .from('contracts')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .is('deleted_at', null)
+      .gte('created_at', lastMonthStart)
+      .lt('created_at', thisMonthStart),
+  ])
+
+  const totalValue = summary.totalReceivable
+  const activeContracts = activeCount ?? 0
+  const customers = totalCustomers ?? 0
+  const customersPrev = totalCustomersPrev ?? 0
+  const activePrev = activeCountPrev ?? 0
+  const newMonth = newThisMonth ?? 0
+  const newPrev = newPrevMonth ?? 0
+
+  // Total a receber no início do mês (soma das parcelas dos contratos existentes antes do mês atual)
+  const totalValuePrev = await getTotalReceivableForContractsCreatedBefore(companyId, thisMonthStart)
+
+  return {
+    totalCustomers: customers,
+    activeContracts,
+    totalValue,
+    newThisMonth: newMonth,
+    customersChangePercent:
+      customersPrev > 0 ? ((customers - customersPrev) / customersPrev) * 100 : null,
+    activeContractsChangePercent:
+      activePrev > 0 ? ((activeContracts - activePrev) / activePrev) * 100 : null,
+    totalValueChangePercent:
+      totalValuePrev > 0 ? ((totalValue - totalValuePrev) / totalValuePrev) * 100 : null,
+    newThisMonthChangePercent:
+      newPrev > 0 ? ((newMonth - newPrev) / newPrev) * 100 : null,
+  }
+}
+
+/** Soma do valor das parcelas (amount) dos contratos criados antes da data (aproximação do "total a receber" naquele momento). */
+async function getTotalReceivableForContractsCreatedBefore(
+  companyId: string,
+  beforeDate: string
+): Promise<number> {
+  const supabase = createClient()
+  const { data: contractIds, error: e1 } = await supabase
+    .from('contracts')
+    .select('id')
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+    .lt('created_at', beforeDate)
+  if (e1 || !contractIds?.length) return 0
+  const ids = contractIds.map((r) => r.id)
+  const { data: installments, error: e2 } = await supabase
+    .from('contract_installments')
+    .select('amount')
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+    .in('contract_id', ids)
+  if (e2) return 0
+  return (installments ?? []).reduce((s, r) => s + Number(r.amount), 0)
+}
+
 // ──────────────────────────── Cash flow forecast ──────────────────
 
 export async function getCashFlowForecast(

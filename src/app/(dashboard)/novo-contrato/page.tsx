@@ -1,11 +1,12 @@
 'use client'
 
 import { ContratoForm, initialContractForm } from '@/components/contrato-form'
+import { LoadingScreen } from '@/components/ui'
 import { getCustomerById } from '@/lib/supabase/customers'
 import type { CustomerAutocompleteItem } from '@/lib/supabase/customers'
 import { useCompanyId } from '@/hooks/use-company-id'
 import { useSearchParams } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 
 function toAutocompleteItem(c: {
   id: string
@@ -26,7 +27,7 @@ function toAutocompleteItem(c: {
   }
 }
 
-export default function NovoContratoPage() {
+function NovoContratoContent() {
   const searchParams = useSearchParams()
   const customerIdParam = searchParams.get('customerId')
   const valorParam = searchParams.get('valor')
@@ -35,7 +36,7 @@ export default function NovoContratoPage() {
   const firstDueDateParam = searchParams.get('firstDueDate')
   const { companyId } = useCompanyId()
   const [initialCustomer, setInitialCustomer] = useState<CustomerAutocompleteItem | null>(null)
-  const [loadingCustomer, setLoadingCustomer] = useState(false)
+  const [, setLoadingCustomer] = useState(false)
 
   const initialDataFromSimulacao = useMemo(() => {
     const base = { ...initialContractForm }
@@ -84,5 +85,13 @@ export default function NovoContratoPage() {
       initialCustomer={initialCustomer ?? undefined}
       initialGuarantor={null}
     />
+  )
+}
+
+export default function NovoContratoPage() {
+  return (
+    <Suspense fallback={<LoadingScreen message="Carregando..." />}>
+      <NovoContratoContent />
+    </Suspense>
   )
 }

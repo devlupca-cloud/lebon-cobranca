@@ -1,46 +1,86 @@
 'use client'
 
+import { useState } from 'react'
 import { Button, Modal } from '@/components/ui'
+import { useCompanyId } from '@/hooks/use-company-id'
+import { getContractById, getInstallmentsByContract } from '@/lib/supabase/contracts'
+import { getCustomerById, getAddressById } from '@/lib/supabase/customers'
+import { generateContractPdf } from '@/lib/pdf/contract-pdf'
 
 export type PopupGerarPdfProps = {
   open: boolean
   onClose: () => void
-  /** ID do contrato para gerar o relatório (opcional) */
   contractId?: string | null
 }
 
 export function PopupGerarPdf({ open, onClose, contractId }: PopupGerarPdfProps) {
-  function handleGerar() {
-    // TODO: integrar com RPC/serviço de geração de PDF
-    alert('Geração de PDF será integrada com o backend.')
+  const { companyId } = useCompanyId()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleGerar() {
+    if (!contractId || !companyId) return
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const contract = await getContractById(contractId, companyId)
+      if (!contract) {
+        setError('Contrato não encontrado.')
+        return
+      }
+
+      const customer = await getCustomerById(contract.customer_id)
+      if (!customer) {
+        setError('Cliente não encontrado.')
+        return
+      }
+
+      const address = customer.address_id
+        ? await getAddressById(customer.address_id)
+        : null
+
+      const installments = await getInstallmentsByContract(contractId)
+
+      generateContractPdf({ contract, customer, address, installments })
+      onClose()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro ao gerar PDF.'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title="Relatório de Contrato"
+      title="Gerar Confissão de Dívida"
       footer={
         <>
-          <Button type="button" variant="secondary" onClick={onClose}>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={loading}>
             Fechar
           </Button>
-          <Button type="button" variant="primary" onClick={handleGerar}>
-            Gerar PDF
+          <Button
+            type="button"
+            variant="primary"
+            onClick={handleGerar}
+            disabled={loading || !contractId || !companyId}
+          >
+            {loading ? 'Gerando...' : 'Gerar PDF'}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
         <p className="text-sm text-zinc-600">
-          Gerar PDF completo do contrato.
-          {contractId && (
-            <span className="mt-1 block text-zinc-500">Contrato: {contractId}</span>
-          )}
+          Gerar o documento &quot;Instrumento Particular de Confissão de Dívida&quot; em PDF.
         </p>
-        <p className="text-xs text-zinc-500">
-          A integração com o serviço de geração de PDF será feita em seguida.
-        </p>
+        {error && (
+          <p className="text-sm text-red-600">{error}</p>
+        )}
       </div>
     </Modal>
   )

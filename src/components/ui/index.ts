@@ -1,4 +1,6 @@
 export { Button } from './button'
+export { ConfirmModal } from './confirm-modal'
 export { Input } from './input'
-export { Modal } from './modal'
 export { Loading, LoadingScreen } from './loading'
+export { Modal } from './modal'
+export { TablePagination } from './table-pagination'

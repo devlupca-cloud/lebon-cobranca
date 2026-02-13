@@ -1,11 +1,12 @@
 'use client'
 
 import { LoadingScreen } from '@/components/ui'
+import { useHeader } from '@/contexts/header-context'
 import { useCompanyId } from '@/hooks/use-company-id'
 import { getDashboardStats } from '@/lib/supabase/reports'
 import type { DashboardStats } from '@/lib/supabase/reports'
 import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 function formatCurrency(value: number): string {
   if (value >= 1_000_000) {
@@ -54,10 +55,21 @@ const KPI_ICONS = {
 }
 
 export default function HomePage() {
+  const { setTitle, setBreadcrumb } = useHeader()
   const { companyId, loading: companyLoading, error: companyError } = useCompanyId()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const fetchStarted = useRef(false)
+
+  useEffect(() => {
+    setTitle('Dashboard')
+    setBreadcrumb([{ label: 'Home', href: '/home' }, { label: 'Dashboard' }])
+    return () => {
+      setTitle('')
+      setBreadcrumb([])
+    }
+  }, [setTitle, setBreadcrumb])
 
   const fetchStats = useCallback(async () => {
     if (!companyId) return
@@ -75,6 +87,8 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!companyId) return
+    if (fetchStarted.current) return
+    fetchStarted.current = true
     fetchStats()
   }, [companyId, fetchStats])
 
@@ -128,15 +142,6 @@ export default function HomePage() {
   return (
     <main className="min-h-full bg-[#f1f4f8]">
       <div className="mx-auto max-w-6xl px-6 py-8">
-        <header className="mb-8">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            Dashboard
-          </h1>
-          <p className="mt-1 text-slate-600">
-            Bem-vindo ao sistema de gestão da Lebon Cobranças
-          </p>
-        </header>
-
         {error && (
           <div className="mb-6 rounded-[8px] border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
             {error}
@@ -197,6 +202,7 @@ export default function HomePage() {
             <div className="flex flex-col gap-2">
               <Link
                 href="/clientes"
+                prefetch={false}
                 className="flex items-center justify-center gap-2 rounded-[8px] bg-[#1E3A8A] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#1e40af]"
               >
                 <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -206,15 +212,17 @@ export default function HomePage() {
               </Link>
               <Link
                 href="/cadastrar-cliente"
+                prefetch={false}
                 className="flex items-center justify-center gap-2 rounded-[8px] bg-[#1E3A8A] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#1e40af]"
               >
                 <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                 </svg>
-                + Novo Cliente
+                Novo Cliente
               </Link>
               <Link
                 href="/extrato-fianceiro"
+                prefetch={false}
                 className="flex items-center justify-center gap-2 rounded-[8px] bg-[#1E3A8A] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#1e40af]"
               >
                 <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -239,6 +247,7 @@ export default function HomePage() {
             <div className="flex flex-col gap-2">
               <Link
                 href="/contratos"
+                prefetch={false}
                 className="flex items-center justify-center gap-2 rounded-[8px] bg-teal-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-teal-500"
               >
                 <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -248,15 +257,17 @@ export default function HomePage() {
               </Link>
               <Link
                 href="/novo-contrato"
+                prefetch={false}
                 className="flex items-center justify-center gap-2 rounded-[8px] bg-teal-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-teal-500"
               >
                 <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                 </svg>
-                + Novo Contrato
+                Novo Contrato
               </Link>
               <Link
                 href="/inadimplentes01"
+                prefetch={false}
                 className="flex items-center justify-center gap-2 rounded-[8px] bg-red-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-red-500"
               >
                 <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">

@@ -1,10 +1,11 @@
 'use client'
 
 import { Button, Input, LoadingScreen, Modal } from '@/components/ui'
+import { useHeader } from '@/contexts/header-context'
 import { useCompanyId } from '@/hooks/use-company-id'
-import { card, input, label as labelClass, pageTitle, pageSubtitle, buttonPrimary, buttonSecondary, tableHead, tableCell, tableCellMuted } from '@/lib/design'
+import { card, input, label as labelClass, pageSubtitle, buttonPrimary, buttonSecondary, tableHead, tableCell, tableCellMuted } from '@/lib/design'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { MdArrowBack, MdAdd } from 'react-icons/md'
 import { maskCurrency } from '@/lib/format'
 
@@ -26,7 +27,14 @@ function formatCurrency(s: string): string {
 }
 
 export default function XequeFinanciamentoPage() {
+  const { setTitle, setBreadcrumb } = useHeader()
   const { companyId, loading: companyLoading, error: companyError } = useCompanyId()
+
+  useEffect(() => {
+    setTitle('Xeque Financiamento')
+    setBreadcrumb([{ label: 'Home', href: '/home' }, { label: 'Xeque Financiamento' }])
+    return () => { setTitle(''); setBreadcrumb([]) }
+  }, [setTitle, setBreadcrumb])
 
   const [items, setItems] = useState<XequeItem[]>([])
   const [modalOpen, setModalOpen] = useState(false)
@@ -68,8 +76,7 @@ export default function XequeFinanciamentoPage() {
   if (companyError || !companyId) {
     return (
       <div className="p-6">
-        <h1 className={pageTitle}>Xeque Financiamento</h1>
-        <p className="mt-2 text-amber-600">Configure sua empresa para acessar esta tela.</p>
+        <p className="text-amber-600">Configure sua empresa para acessar esta tela.</p>
       </div>
     )
   }
@@ -77,10 +84,7 @@ export default function XequeFinanciamentoPage() {
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className={pageTitle}>Xeque/Financiamento</h1>
-          <p className={pageSubtitle}>Controle de xeques e financiamentos</p>
-        </div>
+        <p className={pageSubtitle}>Controle de xeques e financiamentos</p>
         <div className="flex gap-2">
           <Button onClick={handleOpenModal} className={buttonPrimary + ' inline-flex items-center gap-2'}>
             <MdAdd className="h-5 w-5" />

@@ -1,19 +1,17 @@
 'use client'
 
-import { Input } from '@/components/ui'
+import { ConfirmModal, Input } from '@/components/ui'
 import {
   buttonPrimary,
   buttonSecondary,
   card,
   input,
   label as labelClass,
-  pageSubtitle,
-  pageTitle,
 } from '@/lib/design'
 import { getCompanyId } from '@/lib/supabase/company'
 import { insertCustomer, updateCustomer } from '@/lib/supabase/customers'
-import { uploadCustomerFile } from '@/lib/supabase/files'
-import type { Customer } from '@/types/database'
+import { getCustomerFiles, uploadCustomerFilesBatch, deleteCustomerFile } from '@/lib/supabase/files'
+import type { Customer, CustomerFile } from '@/types/database'
 import type { AddressRow } from '@/lib/supabase/customers'
 import {
   formatDateDDMMYYYY,
@@ -21,13 +19,15 @@ import {
   maskCPF,
   maskCNPJ,
   maskCurrency,
+  maskPhone,
   parseCurrency,
   parseDDMMYYYYToISO,
 } from '@/lib/format'
 import { fetchAddressByCep } from '@/lib/viacep'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { MdDelete, MdOpenInNew } from 'react-icons/md'
 
 type PersonType = 'pf' | 'pj'
 
@@ -104,8 +104,8 @@ export function customerToFormState(
     state_registration: customer.state_registration ?? '',
     birth_date: customer.birth_date ? formatISOToDDMMYYYY(customer.birth_date) : '',
     email: customer.email ?? '',
-    phone: customer.phone ?? '',
-    mobile: customer.mobile ?? '',
+    phone: customer.phone ? maskPhone(customer.phone) : '',
+    mobile: customer.mobile ? maskPhone(customer.mobile) : '',
     occupation: customer.occupation ?? '',
     marital_status_id: customer.marital_status_id ?? '',
     referral: customer.referral ?? '',
@@ -145,6 +145,10 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
   const [form, setForm] = useState<FormState>(initialData ?? initialForm)
   const [creditLimitEditing, setCreditLimitEditing] = useState<string | null>(null)
   const [outstandingBalanceEditing, setOutstandingBalanceEditing] = useState<string | null>(null)
+  const [customerFiles, setCustomerFiles] = useState<CustomerFile[]>([])
+  const [customerFilesLoading, setCustomerFilesLoading] = useState(false)
+  const [customerFilesError, setCustomerFilesError] = useState<string | null>(null)
+  const [fileToDeleteId, setFileToDeleteId] = useState<string | null>(null)
   const creditLimitInputRef = useRef<HTMLInputElement>(null)
   const outstandingBalanceInputRef = useRef<HTMLInputElement>(null)
 
@@ -171,6 +175,24 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
       setLoadingCompany(false)
     })
   }, [])
+
+  const fetchCustomerFiles = useCallback(async () => {
+    if (!customerId || !companyId) return
+    setCustomerFilesLoading(true)
+    setCustomerFilesError(null)
+    try {
+      const list = await getCustomerFiles(customerId, companyId)
+      setCustomerFiles(list)
+    } catch (e) {
+      setCustomerFilesError(e instanceof Error ? e.message : 'Erro ao carregar documentos.')
+    } finally {
+      setCustomerFilesLoading(false)
+    }
+  }, [customerId, companyId])
+
+  useEffect(() => {
+    if (mode === 'edit' && customerId && companyId) fetchCustomerFiles()
+  }, [mode, customerId, companyId, fetchCustomerFiles])
 
   useEffect(() => {
     if (creditLimitEditing === null) return
@@ -251,8 +273,8 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
       state_registration: form.person_type === 'pj' ? form.state_registration || null : null,
       birth_date: form.person_type === 'pf' ? parseDDMMYYYYToISO(form.birth_date) || null : null,
       email: form.email || null,
-      phone: form.phone || null,
-      mobile: form.mobile || null,
+      phone: form.phone ? form.phone.replace(/\D/g, '') || null : null,
+      mobile: form.mobile ? form.mobile.replace(/\D/g, '') || null : null,
       occupation: form.person_type === 'pf' ? form.occupation || null : null,
       marital_status_id: maritalId,
       referral: form.referral || null,
@@ -284,6 +306,7 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
     try {
       const payload = buildPayload()
       let savedCustomerId: string
+
       if (mode === 'edit' && customerId) {
         await updateCustomer(customerId, companyId, payload)
         savedCustomerId = customerId
@@ -297,18 +320,24 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
         })
         savedCustomerId = created.id
       }
-      for (let i = 0; i < form.images.length; i++) {
-        const file = form.images[i]
-        if (file instanceof File && file.size > 0) {
-          await uploadCustomerFile(
-            savedCustomerId,
-            companyId,
-            file,
-            i + 1,
-            IMAGE_LABELS[i] ?? null
-          )
-        }
+
+      const filesToUpload = form.images
+        .map((file, i) => {
+          if (file instanceof File && file.size > 0) {
+            return {
+              file,
+              fileTypeId: i + 1,
+              notes: IMAGE_LABELS[i] ?? null,
+            }
+          }
+          return null
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null)
+
+      if (filesToUpload.length > 0) {
+        await uploadCustomerFilesBatch(savedCustomerId, companyId, filesToUpload)
       }
+
       router.push('/clientes')
       router.refresh()
     } catch (e) {
@@ -327,8 +356,19 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
   }
 
   const isEdit = mode === 'edit'
-  const pageTitleText = isEdit ? 'Editar Cliente' : 'Cadastrar Cliente'
   const submitLabel = loading ? 'Salvando...' : isEdit ? 'Salvar alterações' : 'Salvar cliente'
+
+  async function handleConfirmDeleteFile() {
+    if (!fileToDeleteId || !companyId) return
+    setCustomerFilesError(null)
+    try {
+      await deleteCustomerFile(fileToDeleteId, companyId)
+      setFileToDeleteId(null)
+      await fetchCustomerFiles()
+    } catch (e) {
+      setCustomerFilesError(e instanceof Error ? e.message : 'Erro ao remover.')
+    }
+  }
 
   if (loadingCompany) {
     return (
@@ -341,8 +381,7 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
   if (!companyId) {
     return (
       <div className="p-6">
-        <h1 className={pageTitle}>{pageTitleText}</h1>
-        <p className="mt-2 text-amber-600">
+        <p className="text-amber-600">
           Configure sua empresa (company_users) para continuar.
         </p>
         <Link href="/clientes" className="mt-4 inline-block text-[#1E3A8A] hover:underline">
@@ -354,15 +393,6 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
 
   return (
     <div className="flex-1 overflow-auto p-6">
-      <div className="mb-6">
-        <h1 className={pageTitle}>{pageTitleText}</h1>
-        <p className={pageSubtitle}>
-          {isEdit
-            ? 'Atualize os dados do cliente.'
-            : 'Preencha os dados do cliente. Campos obrigatórios conforme tipo (PF/PJ).'}
-        </p>
-      </div>
-
       <form onSubmit={handleSubmit} className="space-y-6">
         {error && (
           <div
@@ -493,6 +523,55 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
             )}
           </div>
         </section>
+
+        {isEdit && customerId && (
+          <section className={card + ' p-6'}>
+            <h2 className="mb-4 text-base font-semibold text-[#14181B]">Documentos já anexados</h2>
+            {customerFilesError && (
+              <div className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+                {customerFilesError}
+              </div>
+            )}
+            {customerFilesLoading ? (
+              <p className="text-sm text-[#57636C]">Carregando documentos...</p>
+            ) : customerFiles.length === 0 ? (
+              <p className="text-sm text-[#57636C]">Nenhum documento anexado.</p>
+            ) : (
+              <ul className="space-y-2">
+                {customerFiles.map((f) => (
+                  <li
+                    key={f.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-[8px] border border-[#E0E3E7] bg-[#f1f4f8] px-4 py-2"
+                  >
+                    <a
+                      href={f.file_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 font-medium text-[#1E3A8A] hover:underline"
+                    >
+                      {f.file_name ?? 'Documento'}
+                      <MdOpenInNew className="h-4 w-4 shrink-0" />
+                    </a>
+                    <div className="flex items-center gap-2">
+                      {f.notes && (
+                        <span className="text-sm text-[#57636C]">{f.notes}</span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setFileToDeleteId(f.id)}
+                        title="Remover documento"
+                        aria-label="Remover documento"
+                        className="rounded-[8px] p-1.5 text-[#ff5963] transition-colors hover:bg-[#ff5963]/10"
+                      >
+                        <MdDelete className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
 
         <section className={card + ' p-6'}>
           <h2 className="mb-4 text-base font-semibold text-[#14181B]">Documentos / Imagens</h2>
@@ -630,13 +709,13 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
             <Input
               label="Telefone fixo"
               value={form.phone}
-              onChange={(e) => updateForm({ phone: e.target.value })}
+              onChange={(e) => updateForm({ phone: maskPhone(e.target.value) })}
               placeholder="(00) 0000-0000"
             />
             <Input
               label="Celular *"
               value={form.mobile}
-              onChange={(e) => updateForm({ mobile: e.target.value })}
+              onChange={(e) => updateForm({ mobile: maskPhone(e.target.value) })}
               placeholder="(00) 00000-0000"
             />
             <Input
@@ -761,6 +840,17 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
           </Link>
         </div>
       </form>
+
+      <ConfirmModal
+        open={fileToDeleteId !== null}
+        onClose={() => setFileToDeleteId(null)}
+        onConfirm={handleConfirmDeleteFile}
+        title="Remover documento"
+        confirmLabel="Remover"
+        variant="danger"
+      >
+        Remover este documento do cliente? O arquivo continuará no sistema, mas deixará de aparecer na lista.
+      </ConfirmModal>
     </div>
   )
 }

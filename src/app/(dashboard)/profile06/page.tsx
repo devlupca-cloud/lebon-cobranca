@@ -1,36 +1,30 @@
 'use client'
 
 import { Button } from '@/components/ui'
+import { useDashboardAuth } from '@/contexts/dashboard-auth-context'
+import { useHeader } from '@/contexts/header-context'
 import { createClient } from '@/lib/supabase/client'
-import { getProfile, updateProfilePhoto } from '@/lib/supabase/company'
+import { updateProfilePhoto } from '@/lib/supabase/company'
 import { uploadPhotoUser } from '@/lib/supabase/storage'
 import Image from 'next/image'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export default function Profile06Page() {
-  const [profile, setProfile] = useState<Awaited<ReturnType<typeof getProfile>>>(null)
-  const [authEmail, setAuthEmail] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { setTitle, setBreadcrumb } = useHeader()
+  const { user, profile, loading, refetch } = useDashboardAuth()
+
+  useEffect(() => {
+    setTitle('Perfil')
+    setBreadcrumb([{ label: 'Home', href: '/home' }, { label: 'Perfil' }])
+    return () => {
+      setTitle('')
+      setBreadcrumb([])
+    }
+  }, [setTitle, setBreadcrumb])
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const loadProfile = useCallback(async () => {
-    setLoading(true)
-    try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      setAuthEmail(user?.email ?? null)
-      const p = await getProfile()
-      setProfile(p)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    loadProfile()
-  }, [loadProfile])
+  const authEmail = user?.email ?? null
 
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -42,13 +36,13 @@ export default function Profile06Page() {
     setMessage(null)
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user?.id) throw new Error('Usuário não autenticado')
+      const { data: { user: u } } = await supabase.auth.getUser()
+      if (!u?.id) throw new Error('Usuário não autenticado')
       const ext = file.name.split('.').pop() ?? 'jpg'
-      const path = `photo/${user.id}/${Date.now()}.${ext}`
+      const path = `photo/${u.id}/${Date.now()}.${ext}`
       const url = await uploadPhotoUser(path, file)
       await updateProfilePhoto(url)
-      setProfile((prev) => (prev ? { ...prev, photo_user: url } : null))
+      await refetch()
       setMessage({ type: 'success', text: 'Foto atualizada.' })
     } catch (err) {
       setMessage({
@@ -75,9 +69,7 @@ export default function Profile06Page() {
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-semibold text-zinc-900">Perfil</h1>
-
-      <div className="mt-6 flex flex-col gap-6 rounded-[8px] border border-zinc-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-6 rounded-[8px] border border-zinc-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center">
         <div className="flex items-center gap-4">
           <button
             type="button"

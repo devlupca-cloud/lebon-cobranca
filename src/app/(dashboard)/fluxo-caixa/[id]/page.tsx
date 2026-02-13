@@ -1,10 +1,11 @@
 'use client'
 
 import { LoadingScreen } from '@/components/ui'
+import { useHeader } from '@/contexts/header-context'
 import { useCompanyId } from '@/hooks/use-company-id'
 import { getExpenseById } from '@/lib/supabase/expenses'
 import type { CompanyExpense } from '@/types/database'
-import { buttonSecondary, card, pageTitle, tableCell, tableCellMuted } from '@/lib/design'
+import { buttonSecondary, card, tableCell, tableCellMuted } from '@/lib/design'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
@@ -27,10 +28,17 @@ function formatDate(iso: string) {
 export default function DetalheContaAPagarPage() {
   const params = useParams()
   const id = typeof params.id === 'string' ? params.id : ''
+  const { setTitle, setBreadcrumb } = useHeader()
   const { companyId, loading: companyLoading, error: companyError } = useCompanyId()
   const [expense, setExpense] = useState<CompanyExpense | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setTitle('Conta a pagar')
+    setBreadcrumb([{ label: 'Home', href: '/home' }, { label: 'Contas a pagar', href: '/fluxo-caixa' }, { label: 'Detalhe' }])
+    return () => { setTitle(''); setBreadcrumb([]) }
+  }, [setTitle, setBreadcrumb])
 
   const fetchExpense = useCallback(async () => {
     if (!companyId || !id) return
@@ -56,8 +64,7 @@ export default function DetalheContaAPagarPage() {
   if (companyError || !companyId) {
     return (
       <div className="p-6">
-        <h1 className={pageTitle}>Conta a pagar</h1>
-        <p className="mt-2 text-amber-600">Sua conta não está vinculada a nenhuma empresa.</p>
+        <p className="text-amber-600">Sua conta não está vinculada a nenhuma empresa.</p>
       </div>
     )
   }
@@ -65,8 +72,7 @@ export default function DetalheContaAPagarPage() {
   if (error || !expense) {
     return (
       <div className="p-6">
-        <h1 className={pageTitle}>Conta a pagar</h1>
-        <p className="mt-2 text-red-600">{error ?? 'Não encontrada.'}</p>
+        <p className="text-red-600">{error ?? 'Não encontrada.'}</p>
         <Link href="/fluxo-caixa" className={buttonSecondary + ' mt-4 inline-flex'}>
           ← Voltar
         </Link>
@@ -77,7 +83,6 @@ export default function DetalheContaAPagarPage() {
   return (
     <div className="p-6">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h1 className={pageTitle}>Conta a pagar</h1>
         <div className="flex gap-3">
           <Link href={`/fluxo-caixa/editar/${id}`} className={buttonSecondary}>
             Editar

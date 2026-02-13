@@ -1,6 +1,7 @@
 'use client'
 
 import { ContratoForm, initialContractForm } from '@/components/contrato-form'
+import { useHeader } from '@/contexts/header-context'
 import { LoadingScreen } from '@/components/ui'
 import { getCustomerById } from '@/lib/supabase/customers'
 import type { CustomerAutocompleteItem } from '@/lib/supabase/customers'
@@ -34,9 +35,23 @@ function NovoContratoContent() {
   const parcelasParam = searchParams.get('parcelas')
   const taxaParam = searchParams.get('taxa')
   const firstDueDateParam = searchParams.get('firstDueDate')
+  const { setTitle, setBreadcrumb } = useHeader()
   const { companyId } = useCompanyId()
   const [initialCustomer, setInitialCustomer] = useState<CustomerAutocompleteItem | null>(null)
   const [, setLoadingCustomer] = useState(false)
+
+  useEffect(() => {
+    setTitle('Novo Contrato')
+    setBreadcrumb([
+      { label: 'Home', href: '/home' },
+      { label: 'Contratos', href: '/contratos' },
+      { label: 'Novo Contrato' },
+    ])
+    return () => {
+      setTitle('')
+      setBreadcrumb([])
+    }
+  }, [setTitle, setBreadcrumb])
 
   const initialDataFromSimulacao = useMemo(() => {
     const base = { ...initialContractForm }

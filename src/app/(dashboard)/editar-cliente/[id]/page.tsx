@@ -2,7 +2,7 @@
 
 import { ClienteForm, customerToFormState } from '@/components/cliente-form'
 import { getAddressById, getCustomerById } from '@/lib/supabase/customers'
-import { pageTitle } from '@/lib/design'
+import { useHeader } from '@/contexts/header-context'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -13,6 +13,21 @@ export default function EditarClientePage() {
   const [initialData, setInitialData] = useState<ReturnType<typeof customerToFormState> | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const { setTitle, setBreadcrumb } = useHeader()
+
+  useEffect(() => {
+    setTitle('Editar Cliente')
+    setBreadcrumb([
+      { label: 'Home', href: '/home' },
+      { label: 'Clientes', href: '/clientes' },
+      { label: 'Editar Cliente' }
+    ])
+
+    return () => {
+      setTitle('')
+      setBreadcrumb([])
+    }
+  }, [setTitle, setBreadcrumb])
 
   useEffect(() => {
     if (!id) {
@@ -60,8 +75,7 @@ export default function EditarClientePage() {
   if (notFound || !id) {
     return (
       <div className="p-6">
-        <h1 className={pageTitle}>Editar Cliente</h1>
-        <p className="mt-2 text-amber-600">Cliente não encontrado.</p>
+        <p className="text-amber-600">Cliente não encontrado.</p>
         <Link href="/clientes" className="mt-4 inline-block text-[#1E3A8A] hover:underline">
           Voltar para Clientes
         </Link>

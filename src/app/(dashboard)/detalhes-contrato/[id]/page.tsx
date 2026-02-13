@@ -1,9 +1,9 @@
 'use client'
 
-import { Button } from '@/components/ui'
-import { LoadingScreen } from '@/components/ui'
+import { Button, ConfirmModal, LoadingScreen } from '@/components/ui'
 import { PopupQuitacao } from '@/components/popup-quitacao'
 import { PopupGerarPdf } from '@/components/popup-gerar-pdf'
+import { useHeader } from '@/contexts/header-context'
 import {
   getContractById,
   getInstallmentsByContract,
@@ -15,7 +15,6 @@ import { useCompanyId } from '@/hooks/use-company-id'
 import { CONTRACT_STATUS, INSTALLMENT_STATUS } from '@/types/enums'
 import { formatCPFOrCNPJ } from '@/lib/format'
 import {
-  pageTitle,
   pageSubtitle,
   card,
   tableHead,
@@ -93,6 +92,7 @@ export default function DetalhesContratoPage() {
   const params = useParams()
   const router = useRouter()
   const id = typeof params.id === 'string' ? params.id : null
+  const { setTitle, setBreadcrumb } = useHeader()
   const { companyId, loading: companyLoading, error: companyError } = useCompanyId()
 
   const [contract, setContract] = useState<ContractWithRelations | null>(null)
@@ -130,6 +130,19 @@ export default function DetalhesContratoPage() {
   useEffect(() => {
     if (companyId && id) loadData()
   }, [companyId, id, loadData])
+
+  useEffect(() => {
+    setTitle('Detalhes do Contrato')
+    setBreadcrumb([
+      { label: 'Home', href: '/home' },
+      { label: 'Contratos', href: '/contratos' },
+      { label: 'Detalhes' },
+    ])
+    return () => {
+      setTitle('')
+      setBreadcrumb([])
+    }
+  }, [setTitle, setBreadcrumb])
 
   async function handleActivate() {
     if (!id || !companyId) return
@@ -180,8 +193,7 @@ export default function DetalhesContratoPage() {
   if (companyError || !companyId) {
     return (
       <div className="p-6">
-        <h1 className={pageTitle}>Detalhes do Contrato</h1>
-        <p className="mt-2 text-amber-600">Configure sua empresa (company_users) para visualizar contratos.</p>
+        <p className="text-amber-600">Configure sua empresa (company_users) para visualizar contratos.</p>
       </div>
     )
   }
@@ -189,8 +201,7 @@ export default function DetalhesContratoPage() {
   if (notFound || !contract) {
     return (
       <div className="p-6">
-        <h1 className={pageTitle}>Detalhes do Contrato</h1>
-        <p className="mt-2 text-amber-600">Contrato não encontrado.</p>
+        <p className="text-amber-600">Contrato não encontrado.</p>
         <Link href="/contratos" className="mt-4 inline-block text-[#1E3A8A] hover:underline">
           Voltar para Contratos
         </Link>
@@ -207,7 +218,6 @@ export default function DetalhesContratoPage() {
 
   return (
     <div className="flex flex-col p-6">
-      {/* Header */}
       <div className="mb-6 flex shrink-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
@@ -215,9 +225,9 @@ export default function DetalhesContratoPage() {
               <MdArrowBack className="h-5 w-5" />
             </Link>
             <MdDescription className="h-6 w-6 text-[#1E3A8A]" aria-hidden />
-            <h1 className={pageTitle}>
+            <span className="text-[22px] font-semibold text-[#14181B]">
               Contrato {contract.contract_number ?? contract.id.slice(0, 8)}
-            </h1>
+            </span>
             <span className={'inline-flex rounded-[8px] px-2.5 py-0.5 text-xs font-medium ' + statusClass}>
               {statusLabel}
             </span>
@@ -292,39 +302,33 @@ export default function DetalhesContratoPage() {
         </div>
       </div>
 
-      {/* Confirmation dialog */}
-      {confirmAction && (
+      {/* Confirmation dialog (apenas cancelar) */}
+      {confirmAction === 'cancel' && (
         <div className="mb-4 rounded-[8px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <p className="font-medium">
-            {confirmAction === 'cancel'
-              ? 'Tem certeza que deseja cancelar este contrato?'
-              : 'Tem certeza que deseja excluir este contrato?'}
-          </p>
-          <p className="mt-1 text-xs">
-            {confirmAction === 'cancel'
-              ? 'O contrato será marcado como cancelado e não poderá mais ser editado.'
-              : 'O contrato será removido permanentemente da listagem.'}
-          </p>
+          <p className="font-medium">Tem certeza que deseja cancelar este contrato?</p>
+          <p className="mt-1 text-xs">O contrato será marcado como cancelado e não poderá mais ser editado.</p>
           <div className="mt-3 flex gap-2">
-            <Button
-              type="button"
-              variant="primary"
-              onClick={confirmAction === 'cancel' ? handleCancel : handleDelete}
-              disabled={actionLoading}
-            >
+            <Button type="button" variant="primary" onClick={handleCancel} disabled={actionLoading}>
               {actionLoading ? 'Processando...' : 'Confirmar'}
             </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setConfirmAction(null)}
-              disabled={actionLoading}
-            >
+            <Button type="button" variant="secondary" onClick={() => setConfirmAction(null)} disabled={actionLoading}>
               Voltar
             </Button>
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={confirmAction === 'delete'}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={handleDelete}
+        title="Excluir contrato"
+        confirmLabel="Excluir"
+        variant="danger"
+        loading={actionLoading}
+      >
+        Tem certeza que deseja excluir este contrato? Esta ação marca o contrato como excluído (exclusão lógica) e ele deixará de aparecer na listagem.
+      </ConfirmModal>
 
       {actionError && (
         <div className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">

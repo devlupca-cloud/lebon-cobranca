@@ -59,39 +59,80 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`flex h-full shrink-0 flex-col border-r border-[#1E3A8A]/30 bg-[#1E3A8A] transition-[width] duration-200 ease-out ${
-        collapsed ? 'w-[72px]' : 'w-[200px]'
+      className={`relative flex h-full shrink-0 flex-col border-r border-[#E0E3E7] bg-[#1E3A8A] transition-[width] duration-300 ease-in-out ${
+        collapsed ? 'w-[72px]' : 'w-[240px]'
       }`}
       aria-label="Menu principal"
     >
-      <div
-        className={`flex flex-col items-center gap-3 px-3 pt-6 pb-4 ${collapsed ? 'px-2' : 'px-4'}`}
-      >
+      {/* Header com logo e nome */}
+      <div className={`flex flex-col items-center gap-3 px-4 pt-6 pb-5 border-b border-white/10 ${collapsed ? 'px-3' : ''}`}>
         <Link
           href="/home"
-          className="block overflow-hidden rounded-full ring-2 ring-white/20 transition hover:ring-white/40"
+          prefetch={false}
+          className="block overflow-hidden rounded-full ring-2 ring-white/20 transition-all duration-200 hover:ring-white/40 hover:scale-105"
           title="Lebon Cobranças"
         >
           <Image
             src="/Logo_lebon.jpg"
             alt="Lebon Cobranças"
-            width={collapsed ? 40 : 48}
-            height={collapsed ? 40 : 48}
-            className={`object-cover ${collapsed ? 'h-10 w-10' : 'h-12 w-12'}`}
+            width={collapsed ? 44 : 56}
+            height={collapsed ? 44 : 56}
+            className={`object-cover transition-all duration-300 ${collapsed ? 'h-11 w-11' : 'h-14 w-14'}`}
           />
         </Link>
         {!collapsed && (
-          <div className="h-8 w-full rounded-[8px] bg-white/10 px-2 flex items-center justify-center">
-            <span className="text-xs font-medium text-white/90 truncate w-full text-center">
+          <div className="w-full text-center animate-in fade-in slide-in-from-left-2 duration-200">
+            <h2 className="text-base font-semibold text-white tracking-tight">
               Lebon Cobranças
-            </span>
+            </h2>
+            <p className="text-xs text-white/60 mt-0.5">
+              Sistema de Gestão
+            </p>
           </div>
         )}
+      </div>
+
+      {/* Navegação */}
+      <nav className="flex-1 overflow-y-auto px-3 py-4 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+        <ul className="flex flex-col gap-1">
+          {SIDEBAR_LINKS.map(({ href, label, icon: Icon }) => {
+            const isActive = pathname === href
+            return (
+              <li key={href}>
+                <Link
+                  href={href}
+                  prefetch={false}
+                  title={collapsed ? label : undefined}
+                  className={`group flex w-full items-center rounded-[8px] py-2.5 text-sm font-medium transition-all duration-200 ${
+                    collapsed ? 'justify-center px-2' : 'gap-3 px-3'
+                  } ${
+                    isActive
+                      ? 'bg-white text-[#1E3A8A] shadow-sm'
+                      : 'text-white/90 hover:bg-white/10 hover:text-white hover:translate-x-0.5'
+                  }`}
+                >
+                  <Icon className={`h-5 w-5 shrink-0 transition-transform duration-200 ${
+                    isActive ? 'text-[#1E3A8A]' : 'text-white/90 group-hover:scale-110'
+                  }`} />
+                  {!collapsed && (
+                    <span className="truncate animate-in fade-in slide-in-from-left-1 duration-150">
+                      {label}
+                    </span>
+                  )}
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
+      </nav>
+
+      {/* Botão de toggle - fixo no rodapé */}
+      <div className={`border-t border-white/10 p-3 ${collapsed ? 'px-2' : ''}`}>
         <button
           type="button"
           onClick={toggle}
-          className={`mt-2 flex items-center justify-center rounded-full p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white/90 ${
-            collapsed ? 'w-8' : 'w-full gap-1'
+          className={`flex w-full items-center justify-center rounded-[8px] py-2.5 text-sm font-medium text-white/90 transition-all duration-200 hover:bg-white/10 hover:text-white hover:scale-105 active:scale-95 ${
+            collapsed ? 'px-2' : 'gap-2 px-3'
           }`}
           title={collapsed ? 'Expandir menu' : 'Recolher menu'}
           aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
@@ -100,37 +141,14 @@ export function Sidebar() {
             <MdChevronRight className="h-5 w-5" />
           ) : (
             <>
-              <MdChevronLeft className="h-5 w-5 shrink-0" />
-              <span className="text-xs">Recolher</span>
+              <MdChevronLeft className="h-5 w-5" />
+              <span className="text-xs animate-in fade-in slide-in-from-left-1 duration-150">
+                Recolher
+              </span>
             </>
           )}
         </button>
       </div>
-      <nav className="flex-1 overflow-y-auto px-2 pb-4">
-        <ul className="flex flex-col gap-0.5">
-          {SIDEBAR_LINKS.map(({ href, label, icon: Icon }) => {
-            const isActive = pathname === href
-            return (
-              <li key={href}>
-                <Link
-                  href={href}
-                  title={collapsed ? label : undefined}
-                  className={`flex w-full items-center rounded-[8px] py-2.5 text-sm font-medium transition-colors ${
-                    collapsed ? 'justify-center px-0' : 'gap-2.5 px-2.5'
-                  } ${
-                    isActive
-                      ? 'bg-white/20 text-white'
-                      : 'text-white/90 hover:bg-white/10 hover:text-white'
-                  }`}
-                >
-                  <Icon className="h-6 w-6 shrink-0 text-white" />
-                  {!collapsed && <span className="truncate">{label}</span>}
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
-      </nav>
     </aside>
   )
 }

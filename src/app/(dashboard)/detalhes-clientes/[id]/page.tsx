@@ -1,6 +1,6 @@
 'use client'
 
-import { LoadingScreen } from '@/components/ui'
+import { ConfirmModal, LoadingScreen } from '@/components/ui'
 import { useCompanyId } from '@/hooks/use-company-id'
 import { useHeader } from '@/contexts/header-context'
 import { Button } from '@/components/ui'
@@ -9,8 +9,8 @@ import { getCustomerFiles, uploadCustomerFile, deleteCustomerFile } from '@/lib/
 import type { Customer } from '@/types/database'
 import type { CustomerFile } from '@/types/database'
 import type { AddressRow } from '@/lib/supabase/customers'
-import { formatCPFOrCNPJ } from '@/lib/format'
-import { card, pageTitle, pageSubtitle, buttonPrimary } from '@/lib/design'
+import { formatCPFOrCNPJ, formatPhone } from '@/lib/format'
+import { card, pageSubtitle, buttonPrimary } from '@/lib/design'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -28,10 +28,17 @@ export default function DetalhesClientePage() {
   const [filesLoading, setFilesLoading] = useState(false)
   const [filesError, setFilesError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [fileToDeleteId, setFileToDeleteId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const { setLeftContent } = useHeader()
+  const { setLeftContent, setTitle, setBreadcrumb } = useHeader()
   useEffect(() => {
+    setTitle('Detalhes do Cliente')
+    setBreadcrumb([
+      { label: 'Home', href: '/home' },
+      { label: 'Clientes', href: '/clientes' },
+      { label: 'Detalhes' },
+    ])
     setLeftContent(
       <div className="flex items-center gap-4">
         <Link href="/clientes">
@@ -56,8 +63,19 @@ export default function DetalhesClientePage() {
         )}
       </div>
     )
-    return () => setLeftContent(null)
-  }, [setLeftContent, id])
+    return () => {
+      setLeftContent(null)
+      setTitle('')
+      setBreadcrumb([])
+    }
+  }, [setLeftContent, setTitle, setBreadcrumb, id])
+
+  // Título dinâmico com nome do cliente quando carregado
+  const displayNameForTitle =
+    customer?.full_name ?? customer?.legal_name ?? customer?.trade_name ?? null
+  useEffect(() => {
+    if (displayNameForTitle) setTitle(displayNameForTitle)
+  }, [displayNameForTitle, setTitle])
 
   const fetchCustomer = useCallback(async () => {
     if (!id || !companyId) return
@@ -121,11 +139,12 @@ export default function DetalhesClientePage() {
     }
   }
 
-  const handleDeleteFile = async (fileId: string) => {
-    if (!companyId || !confirm('Remover este documento?')) return
+  const handleConfirmDeleteFile = async () => {
+    if (!fileToDeleteId || !companyId) return
     setFilesError(null)
     try {
-      await deleteCustomerFile(fileId, companyId)
+      await deleteCustomerFile(fileToDeleteId, companyId)
+      setFileToDeleteId(null)
       await fetchFiles()
     } catch (err) {
       setFilesError(err instanceof Error ? err.message : 'Erro ao remover.')
@@ -136,8 +155,7 @@ export default function DetalhesClientePage() {
   if (companyError || !companyId) {
     return (
       <div className="p-6">
-        <h1 className={pageTitle}>Detalhes do Cliente</h1>
-        <p className="mt-2 text-amber-600">
+        <p className="text-amber-600">
           Configure sua empresa (company_users) para visualizar clientes.
         </p>
       </div>
@@ -147,8 +165,7 @@ export default function DetalhesClientePage() {
   if (!id) {
     return (
       <div className="p-6">
-        <h1 className={pageTitle}>Detalhes do Cliente</h1>
-        <p className="mt-2 text-[#536471]">ID do cliente não informado.</p>
+        <p className="text-[#536471]">ID do cliente não informado.</p>
         <Link href="/clientes" className="mt-4 inline-block text-[#1E3A8A] hover:underline">
           Voltar para Clientes
         </Link>
@@ -161,8 +178,7 @@ export default function DetalhesClientePage() {
   if (error || !customer) {
     return (
       <div className="p-6">
-        <h1 className={pageTitle}>Detalhes do Cliente</h1>
-        <p className="mt-2 text-red-600">{error ?? 'Cliente não encontrado.'}</p>
+        <p className="text-red-600">{error ?? 'Cliente não encontrado.'}</p>
         <Link href="/clientes" className="mt-4 inline-block text-[#1E3A8A] hover:underline">
           Voltar para Clientes
         </Link>
@@ -183,7 +199,6 @@ export default function DetalhesClientePage() {
   return (
     <div className="flex-1 overflow-auto p-6">
       <div className="mb-6">
-        <h1 className={pageTitle}>{displayName}</h1>
         <p className={pageSubtitle}>
           {isPJ ? 'Pessoa Jurídica' : 'Pessoa Física'} · {customer.customer_code ?? 'Sem código'}
         </p>
@@ -209,8 +224,8 @@ export default function DetalhesClientePage() {
           <h2 className="mb-4 text-base font-semibold text-[#0f1419]">Contato</h2>
           <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="E-mail" value={customer.email} />
-            <Field label="Telefone fixo" value={customer.phone} />
-            <Field label="Celular" value={customer.mobile} />
+            <Field label="Telefone fixo" value={formatPhone(customer.phone)} />
+            <Field label="Celular" value={formatPhone(customer.mobile)} />
           </dl>
         </section>
 
@@ -297,7 +312,7 @@ export default function DetalhesClientePage() {
                     {f.notes && <span className="text-sm text-[#57636C]">{f.notes}</span>}
                     <button
                       type="button"
-                      onClick={() => handleDeleteFile(f.id)}
+                      onClick={() => setFileToDeleteId(f.id)}
                       className="text-sm font-medium text-red-600 hover:underline"
                     >
                       Remover
@@ -309,6 +324,17 @@ export default function DetalhesClientePage() {
           )}
         </section>
       </div>
+
+      <ConfirmModal
+        open={fileToDeleteId !== null}
+        onClose={() => setFileToDeleteId(null)}
+        onConfirm={handleConfirmDeleteFile}
+        title="Remover documento"
+        confirmLabel="Remover"
+        variant="danger"
+      >
+        Remover este documento do cliente? O arquivo continuará no sistema, mas deixará de aparecer na lista.
+      </ConfirmModal>
     </div>
   )
 }

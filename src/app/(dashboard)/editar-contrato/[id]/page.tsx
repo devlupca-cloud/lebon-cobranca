@@ -2,12 +2,12 @@
 
 import { ContratoForm, contractToFormState } from '@/components/contrato-form'
 import type { ContractFormState } from '@/components/contrato-form'
+import { useHeader } from '@/contexts/header-context'
 import { getContractById } from '@/lib/supabase/contracts'
 import { getCustomerById } from '@/lib/supabase/customers'
 import type { CustomerAutocompleteItem } from '@/lib/supabase/customers'
 import { useCompanyId } from '@/hooks/use-company-id'
 import { CONTRACT_STATUS } from '@/types/enums'
-import { pageTitle } from '@/lib/design'
 import { LoadingScreen } from '@/components/ui'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
@@ -50,9 +50,23 @@ export default function EditarContratoPage() {
   const params = useParams()
   const router = useRouter()
   const id = typeof params.id === 'string' ? params.id : null
+  const { setTitle, setBreadcrumb } = useHeader()
   const { companyId, loading: companyLoading } = useCompanyId()
 
   const [initialData, setInitialData] = useState<ContractFormState | null>(null)
+
+  useEffect(() => {
+    setTitle('Editar Contrato')
+    setBreadcrumb([
+      { label: 'Home', href: '/home' },
+      { label: 'Contratos', href: '/contratos' },
+      { label: 'Editar' },
+    ])
+    return () => {
+      setTitle('')
+      setBreadcrumb([])
+    }
+  }, [setTitle, setBreadcrumb])
   const [initialCustomer, setInitialCustomer] = useState<CustomerAutocompleteItem | null>(null)
   const [initialGuarantor, setInitialGuarantor] = useState<CustomerAutocompleteItem | null>(null)
   const [disabledFields, setDisabledFields] = useState<Set<string> | undefined>(undefined)
@@ -131,8 +145,7 @@ export default function EditarContratoPage() {
   if (notFound || !id) {
     return (
       <div className="p-6">
-        <h1 className={pageTitle}>Editar Contrato</h1>
-        <p className="mt-2 text-amber-600">Contrato não encontrado.</p>
+        <p className="text-amber-600">Contrato não encontrado.</p>
         <Link href="/contratos" className="mt-4 inline-block text-[#1E3A8A] hover:underline">
           Voltar para Contratos
         </Link>

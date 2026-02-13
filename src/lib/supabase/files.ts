@@ -1,7 +1,12 @@
 import { createClient } from '@/lib/supabase/client'
 import type { CustomerFile, ContractFile } from '@/types/database'
 
-const BUCKET = 'documents'
+/** Nome do bucket de documentos no Supabase Storage. Crie em Storage com este nome ou defina NEXT_PUBLIC_SUPABASE_BUCKET_DOCUMENTS. */
+const BUCKET =
+  typeof process.env.NEXT_PUBLIC_SUPABASE_BUCKET_DOCUMENTS === 'string' &&
+  process.env.NEXT_PUBLIC_SUPABASE_BUCKET_DOCUMENTS.length > 0
+    ? process.env.NEXT_PUBLIC_SUPABASE_BUCKET_DOCUMENTS
+    : 'documents'
 
 // ──────────────────────────── Helpers ──────────────────────────────
 
@@ -57,6 +62,57 @@ export async function uploadCustomerFile(
 
   if (error) throw error
   return data as CustomerFile
+}
+
+export type UploadCustomerFileItem = {
+  file: File
+  fileTypeId: number
+  notes?: string | null
+}
+
+/**
+ * Upload de múltiplos arquivos em paralelo + uma única inserção em lote.
+ * Reduz round-trips e tempo total em relação a N chamadas sequenciais a uploadCustomerFile.
+ */
+export async function uploadCustomerFilesBatch(
+  customerId: string,
+  companyId: string,
+  items: UploadCustomerFileItem[]
+): Promise<CustomerFile[]> {
+  if (items.length === 0) return []
+
+  const basePath = `customers/${companyId}/${customerId}`
+  const timestamp = Date.now()
+
+  const uploads = items.map((item, index) => {
+    const path = `${basePath}/${timestamp}_${index}_${item.file.name}`
+    return uploadToStorage(path, item.file).then((fileUrl) => ({
+      fileUrl,
+      fileTypeId: item.fileTypeId,
+      file_name: item.file.name,
+      notes: item.notes ?? null,
+    }))
+  })
+
+  const results = await Promise.all(uploads)
+
+  const supabase = createClient()
+  const rows = results.map((r) => ({
+    company_id: companyId,
+    customer_id: customerId,
+    file_type_id: r.fileTypeId,
+    file_url: r.fileUrl,
+    file_name: r.file_name,
+    notes: r.notes,
+  }))
+
+  const { data, error } = await supabase
+    .from('customer_files')
+    .insert(rows)
+    .select()
+
+  if (error) throw error
+  return (data ?? []) as CustomerFile[]
 }
 
 export async function getCustomerFiles(

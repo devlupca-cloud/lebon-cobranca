@@ -1,10 +1,11 @@
 'use client'
 
-import { LoadingScreen } from '@/components/ui'
+import { ConfirmModal, LoadingScreen } from '@/components/ui'
+import { useHeader } from '@/contexts/header-context'
 import { useCompanyId } from '@/hooks/use-company-id'
 import { getExpenses, deleteExpense } from '@/lib/supabase/expenses'
 import type { CompanyExpense } from '@/types/database'
-import { buttonPrimary, buttonSecondary, input, label as labelClass, pageTitle, tableCell, tableCellMuted, tableHead } from '@/lib/design'
+import { buttonPrimary, buttonSecondary, input, label as labelClass, tableCell, tableCellMuted, tableHead } from '@/lib/design'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 import { MdAdd, MdDelete, MdEdit, MdPlayArrow, MdVisibility } from 'react-icons/md'
@@ -27,12 +28,23 @@ function formatDate(iso: string) {
 }
 
 export default function ContasAPagarPage() {
+  const { setTitle, setBreadcrumb } = useHeader()
   const { companyId, loading: companyLoading, error: companyError } = useCompanyId()
   const [expenses, setExpenses] = useState<CompanyExpense[]>([])
+
+  useEffect(() => {
+    setTitle('Contas a pagar')
+    setBreadcrumb([{ label: 'Home', href: '/home' }, { label: 'Contas a pagar' }])
+    return () => {
+      setTitle('')
+      setBreadcrumb([])
+    }
+  }, [setTitle, setBreadcrumb])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filterType, setFilterType] = useState<string>('')
   const [filterDate, setFilterDate] = useState<string>('')
+  const [expenseToDelete, setExpenseToDelete] = useState<CompanyExpense | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const fetchData = useCallback(async () => {
@@ -63,30 +75,30 @@ export default function ContasAPagarPage() {
     fetchData()
   }, [companyId, fetchData])
 
-  const handleDelete = useCallback(
-    async (row: CompanyExpense) => {
-      if (!companyId) return
-      if (!confirm(`Excluir "${row.payee_name}" (${formatCurrency(row.amount)})?`)) return
-      setDeletingId(row.id)
-      setError(null)
-      try {
-        await deleteExpense(row.id, companyId)
-        await fetchData()
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Erro ao excluir.')
-      } finally {
-        setDeletingId(null)
-      }
-    },
-    [companyId, fetchData]
-  )
+  const handleDeleteClick = useCallback((row: CompanyExpense) => {
+    setExpenseToDelete(row)
+  }, [])
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!expenseToDelete || !companyId) return
+    setDeletingId(expenseToDelete.id)
+    setError(null)
+    try {
+      await deleteExpense(expenseToDelete.id, companyId)
+      setExpenseToDelete(null)
+      await fetchData()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro ao excluir.')
+    } finally {
+      setDeletingId(null)
+    }
+  }, [companyId, expenseToDelete, fetchData])
 
   if (companyLoading) return <LoadingScreen message="Carregando..." />
   if (companyError || !companyId) {
     return (
       <div className="p-6">
-        <h1 className={pageTitle}>Contas a pagar</h1>
-        <p className="mt-2 text-amber-600">
+        <p className="text-amber-600">
           Sua conta não está vinculada a nenhuma empresa. Faça login com um usuário cadastrado em Cadastrar Acesso.
         </p>
       </div>
@@ -96,7 +108,6 @@ export default function ContasAPagarPage() {
   return (
     <div className="p-6">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h1 className={pageTitle}>Contas a pagar</h1>
         <div className="flex flex-wrap items-center gap-3">
           <Link href="/cadastrar-fluxo-de-caixa" className={buttonPrimary}>
             <MdAdd className="h-5 w-5" aria-hidden />
@@ -204,7 +215,7 @@ export default function ContasAPagarPage() {
                           </Link>
                           <button
                             type="button"
-                            onClick={() => handleDelete(row)}
+                            onClick={() => handleDeleteClick(row)}
                             disabled={deletingId === row.id}
                             className="rounded-[8px] p-2 text-[#57636C] hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                             title="Excluir"
@@ -222,6 +233,22 @@ export default function ContasAPagarPage() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={expenseToDelete !== null}
+        onClose={() => setExpenseToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="Excluir despesa"
+        confirmLabel="Excluir"
+        variant="danger"
+        loading={deletingId === expenseToDelete?.id}
+      >
+        {expenseToDelete && (
+          <>
+            Excluir &quot;{expenseToDelete.payee_name}&quot; ({formatCurrency(expenseToDelete.amount)})? Esta ação marca a despesa como excluída (exclusão lógica).
+          </>
+        )}
+      </ConfirmModal>
     </div>
   )
 }

@@ -1,10 +1,11 @@
 'use client'
 
 import { LoadingScreen } from '@/components/ui'
+import { useHeader } from '@/contexts/header-context'
 import { getFinancialSummary } from '@/lib/supabase/reports'
 import type { FinancialSummary } from '@/lib/supabase/reports'
 import { useCompanyId } from '@/hooks/use-company-id'
-import { card, pageTitle, pageSubtitle } from '@/lib/design'
+import { card, pageSubtitle } from '@/lib/design'
 import { useCallback, useEffect, useState } from 'react'
 
 function formatCurrency(value: number) {
@@ -15,10 +16,20 @@ function formatCurrency(value: number) {
 }
 
 export default function ExtratoFianceiroPage() {
+  const { setTitle, setBreadcrumb } = useHeader()
   const { companyId, loading: companyLoading, error: companyError } = useCompanyId()
   const [summary, setSummary] = useState<FinancialSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setTitle('Extrato Financeiro')
+    setBreadcrumb([{ label: 'Home', href: '/home' }, { label: 'Extrato Financeiro' }])
+    return () => {
+      setTitle('')
+      setBreadcrumb([])
+    }
+  }, [setTitle, setBreadcrumb])
 
   const fetchSummary = useCallback(async () => {
     if (!companyId) return
@@ -43,8 +54,7 @@ export default function ExtratoFianceiroPage() {
   if (companyError || !companyId) {
     return (
       <div className="p-6">
-        <h1 className={pageTitle}>Extrato Financeiro</h1>
-        <p className="mt-2 text-amber-600">
+        <p className="text-amber-600">
           Configure sua empresa (company_users) para acessar esta tela.
         </p>
       </div>
@@ -53,7 +63,6 @@ export default function ExtratoFianceiroPage() {
 
   return (
     <div className="p-6">
-      <h1 className={pageTitle}>Extrato Financeiro</h1>
       <p className={pageSubtitle}>
         Resumo financeiro da empresa
       </p>

@@ -86,13 +86,14 @@ export async function getContractsFiltered(
     .from('contracts')
     .select(`
       *,
-      customer:customers ( id, full_name, legal_name, trade_name, cpf, cnpj, person_type ),
+      customer:customers!inner ( id, full_name, legal_name, trade_name, cpf, cnpj, person_type ),
       contract_statuses ( id, name ),
       contract_categories ( id, name ),
       contract_types ( id, name )
     `, { count: 'exact' })
     .eq('company_id', params.companyId)
     .is('deleted_at', null)
+    .is('customers.deleted_at', null)
 
   if (params.customerId) {
     query = query.eq('customer_id', params.customerId)

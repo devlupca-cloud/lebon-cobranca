@@ -1,15 +1,15 @@
 'use client'
 
-import { Button } from '@/components/ui'
-import { LoadingScreen } from '@/components/ui'
+import { Button, LoadingScreen, TablePagination } from '@/components/ui'
 import { PopupGerarPdf } from '@/components/popup-gerar-pdf'
 import { PopupQuitacao } from '@/components/popup-quitacao'
+import { useHeader } from '@/contexts/header-context'
 import { getContractsFiltered, type GetContractsParams } from '@/lib/supabase/contracts'
 import { getCustomersAutocomplete } from '@/lib/supabase/customers'
 import { useCompanyId } from '@/hooks/use-company-id'
 import { CONTRACT_STATUS } from '@/types/enums'
 import { formatCPFOrCNPJ } from '@/lib/format'
-import { input, label as labelClass, pageTitle, pageSubtitle, tableHead, tableCell, tableCellMuted } from '@/lib/design'
+import { input, label as labelClass, pageSubtitle, tableHead, tableCell, tableCellMuted } from '@/lib/design'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ContractWithRelations } from '@/types/database'
@@ -64,6 +64,7 @@ function getCustomerDisplayName(customer: ContractWithRelations['customer']): st
 }
 
 export default function ContratosPage() {
+  const { setTitle, setBreadcrumb } = useHeader()
   const { companyId, loading: companyLoading, error: companyError } = useCompanyId()
   const [response, setResponse] = useState<{
     total: number
@@ -122,6 +123,15 @@ export default function ContratosPage() {
     fetchContracts()
   }, [companyId, fetchContracts])
 
+  useEffect(() => {
+    setTitle('Contratos')
+    setBreadcrumb([{ label: 'Home', href: '/home' }, { label: 'Contratos' }])
+    return () => {
+      setTitle('')
+      setBreadcrumb([])
+    }
+  }, [setTitle, setBreadcrumb])
+
   const fetchCustomerOptions = useCallback(async () => {
     if (!companyId) return
     try {
@@ -170,8 +180,7 @@ export default function ContratosPage() {
   if (companyError || !companyId) {
     return (
       <div className="p-6">
-        <h1 className="text-2xl font-semibold text-zinc-900">Contratos</h1>
-        <p className="mt-2 text-amber-600">
+        <p className="text-amber-600">
           Configure sua empresa (company_users) para listar contratos.
         </p>
       </div>
@@ -185,14 +194,10 @@ export default function ContratosPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col p-6">
-      {/* Título + contador na mesma linha (igual Clientes) */}
       <div className="mb-6 flex shrink-0 flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className={pageTitle}>Lista de Contratos</h1>
-          <p className={pageSubtitle}>
-            Gerencie todos os contratos cadastrados no sistema
-          </p>
-        </div>
+        <p className={pageSubtitle}>
+          Gerencie todos os contratos cadastrados no sistema
+        </p>
         <div className="flex flex-wrap items-center gap-3">
           {!loading && (
             <p className="text-sm text-[#57636C]">
@@ -540,31 +545,15 @@ export default function ContratosPage() {
             </div>
           </div>
 
-          {totalPages > 1 && (
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-[#57636C]">
-                {from}–{to} de {total}
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  Anterior
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                >
-                  Próxima
-                </Button>
-              </div>
-            </div>
-          )}
+          <TablePagination
+            from={from}
+            to={to}
+            total={total}
+            page={page}
+            totalPages={totalPages}
+            onPrevious={() => setPage((p) => Math.max(1, p - 1))}
+            onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+          />
         </>
       )}
 

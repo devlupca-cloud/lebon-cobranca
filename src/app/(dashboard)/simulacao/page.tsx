@@ -1,15 +1,26 @@
 'use client'
 
 import { LoadingScreen } from '@/components/ui'
+import { useHeader } from '@/contexts/header-context'
 import { useCompanyId } from '@/hooks/use-company-id'
 import { calcularParcela, formatCurrency } from '@/lib/simulacao'
-import { buttonPrimary, card, input, label as labelClass, pageSubtitle, pageTitle } from '@/lib/design'
+import { buttonPrimary, card, input, label as labelClass, pageSubtitle } from '@/lib/design'
 import Link from 'next/link'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { MdSwapVert } from 'react-icons/md'
 
 export default function SimulacaoPage() {
+  const { setTitle, setBreadcrumb } = useHeader()
   const { companyId, loading: companyLoading, error: companyError } = useCompanyId()
+
+  useEffect(() => {
+    setTitle('Simulação')
+    setBreadcrumb([{ label: 'Home', href: '/home' }, { label: 'Simulação' }])
+    return () => {
+      setTitle('')
+      setBreadcrumb([])
+    }
+  }, [setTitle, setBreadcrumb])
   const [valor, setValor] = useState('')
   const [taxaJuros, setTaxaJuros] = useState('')
   const [parcelas, setParcelas] = useState('')
@@ -40,8 +51,7 @@ export default function SimulacaoPage() {
   if (companyError || !companyId) {
     return (
       <div className="p-6">
-        <h1 className={pageTitle}>Simulação</h1>
-        <p className="mt-2 text-amber-600">
+        <p className="text-amber-600">
           Sua conta não está vinculada a nenhuma empresa. Faça login com um usuário cadastrado em Cadastrar Acesso.
         </p>
       </div>
@@ -51,15 +61,9 @@ export default function SimulacaoPage() {
   return (
     <div className="p-6">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <MdSwapVert className="h-7 w-7 text-[#1E3A8A]" aria-hidden />
-          <div>
-            <h1 className={pageTitle}>Simulação</h1>
-            <p className={pageSubtitle}>
-              Simule parcelas e valores para um novo contrato
-            </p>
-          </div>
-        </div>
+        <p className={pageSubtitle}>
+          Simule parcelas e valores para um novo contrato
+        </p>
         <Link
           href="/contratos"
           className="text-sm font-medium text-[#1E3A8A] hover:underline"

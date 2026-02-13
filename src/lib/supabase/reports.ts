@@ -1,6 +1,24 @@
 import { createClient } from '@/lib/supabase/client'
 import { CONTRACT_STATUS, INSTALLMENT_STATUS } from '@/types/enums'
 
+/**
+ * Retorna IDs de contratos cujo cliente NÃO está excluído (deleted_at).
+ * Usado para que relatórios e somas não incluam dados de clientes com exclusão lógica.
+ */
+async function getContractIdsWithActiveCustomer(
+  companyId: string
+): Promise<string[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('contracts')
+    .select('id, customer:customers!inner(id)')
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+    .is('customers.deleted_at', null)
+  if (error) return []
+  return (data ?? []).map((r) => r.id as string)
+}
+
 // ──────────────────────────── Types ───────────────────────────────
 
 export type CashFlowMonth = {
@@ -37,7 +55,44 @@ export type DashboardStats = {
 
 // ──────────────────────────── Dashboard stats ─────────────────────
 
+/**
+ * Busca estatísticas do dashboard via RPC (uma única chamada ao banco).
+ * Fallback para a lógica antiga se a RPC não existir ou falhar.
+ */
 export async function getDashboardStats(
+  companyId: string
+): Promise<DashboardStats> {
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc('get_dashboard_stats', {
+    p_company_id: companyId,
+  })
+  if (!error && data != null && typeof data === 'object') {
+    const r = data as {
+      totalCustomers?: number
+      activeContracts?: number
+      totalValue?: number
+      newThisMonth?: number
+      customersChangePercent?: number | null
+      activeContractsChangePercent?: number | null
+      totalValueChangePercent?: number | null
+      newThisMonthChangePercent?: number | null
+    }
+    return {
+      totalCustomers: Number(r.totalCustomers ?? 0),
+      activeContracts: Number(r.activeContracts ?? 0),
+      totalValue: Number(r.totalValue ?? 0),
+      newThisMonth: Number(r.newThisMonth ?? 0),
+      customersChangePercent: r.customersChangePercent ?? null,
+      activeContractsChangePercent: r.activeContractsChangePercent ?? null,
+      totalValueChangePercent: r.totalValueChangePercent ?? null,
+      newThisMonthChangePercent: r.newThisMonthChangePercent ?? null,
+    }
+  }
+  return getDashboardStatsLegacy(companyId)
+}
+
+/** Implementação em múltiplas queries (fallback quando a RPC não existe). */
+async function getDashboardStatsLegacy(
   companyId: string
 ): Promise<DashboardStats> {
   const supabase = createClient()
@@ -72,28 +127,32 @@ export async function getDashboardStats(
     getFinancialSummary(companyId),
     supabase
       .from('contracts')
-      .select('id', { count: 'exact', head: true })
-      .eq('company_id', companyId)
-      .eq('status_id', CONTRACT_STATUS.ACTIVE)
-      .is('deleted_at', null),
-    supabase
-      .from('contracts')
-      .select('id', { count: 'exact', head: true })
+      .select('id, customer:customers!inner(id)', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .eq('status_id', CONTRACT_STATUS.ACTIVE)
       .is('deleted_at', null)
+      .is('customers.deleted_at', null),
+    supabase
+      .from('contracts')
+      .select('id, customer:customers!inner(id)', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .eq('status_id', CONTRACT_STATUS.ACTIVE)
+      .is('deleted_at', null)
+      .is('customers.deleted_at', null)
       .lt('created_at', thisMonthStart),
     supabase
       .from('contracts')
-      .select('id', { count: 'exact', head: true })
+      .select('id, customer:customers!inner(id)', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .is('deleted_at', null)
+      .is('customers.deleted_at', null)
       .gte('created_at', thisMonthStart),
     supabase
       .from('contracts')
-      .select('id', { count: 'exact', head: true })
+      .select('id, customer:customers!inner(id)', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .is('deleted_at', null)
+      .is('customers.deleted_at', null)
       .gte('created_at', lastMonthStart)
       .lt('created_at', thisMonthStart),
   ])
@@ -106,7 +165,6 @@ export async function getDashboardStats(
   const newMonth = newThisMonth ?? 0
   const newPrev = newPrevMonth ?? 0
 
-  // Total a receber no início do mês (soma das parcelas dos contratos existentes antes do mês atual)
   const totalValuePrev = await getTotalReceivableForContractsCreatedBefore(companyId, thisMonthStart)
 
   return {
@@ -125,7 +183,7 @@ export async function getDashboardStats(
   }
 }
 
-/** Soma do valor das parcelas (amount) dos contratos criados antes da data (aproximação do "total a receber" naquele momento). */
+/** Soma do valor das parcelas (amount) dos contratos criados antes da data (aproximação do "total a receber" naquele momento). Exclui contratos de clientes com exclusão lógica. */
 async function getTotalReceivableForContractsCreatedBefore(
   companyId: string,
   beforeDate: string
@@ -133,9 +191,10 @@ async function getTotalReceivableForContractsCreatedBefore(
   const supabase = createClient()
   const { data: contractIds, error: e1 } = await supabase
     .from('contracts')
-    .select('id')
+    .select('id, customer:customers!inner(id)')
     .eq('company_id', companyId)
     .is('deleted_at', null)
+    .is('customers.deleted_at', null)
     .lt('created_at', beforeDate)
   if (e1 || !contractIds?.length) return 0
   const ids = contractIds.map((r) => r.id)
@@ -157,12 +216,15 @@ export async function getCashFlowForecast(
   endDate: string
 ): Promise<CashFlowMonth[]> {
   const supabase = createClient()
+  const contractIds = await getContractIdsWithActiveCustomer(companyId)
+  if (contractIds.length === 0) return []
 
   const { data, error } = await supabase
     .from('contract_installments')
     .select('due_date, amount, amount_paid, status_id')
     .eq('company_id', companyId)
     .is('deleted_at', null)
+    .in('contract_id', contractIds)
     .gte('due_date', startDate)
     .lte('due_date', endDate)
 
@@ -189,13 +251,38 @@ export async function getFinancialSummary(
   companyId: string
 ): Promise<FinancialSummary> {
   const supabase = createClient()
+  const contractIds = await getContractIdsWithActiveCustomer(companyId)
+  if (contractIds.length === 0) {
+    const { count: activeCount } = await supabase
+      .from('contracts')
+      .select('id, customer:customers!inner(id)', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .eq('status_id', CONTRACT_STATUS.ACTIVE)
+      .is('deleted_at', null)
+      .is('customers.deleted_at', null)
+    const { count: closedCount } = await supabase
+      .from('contracts')
+      .select('id, customer:customers!inner(id)', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .eq('status_id', CONTRACT_STATUS.CLOSED)
+      .is('deleted_at', null)
+      .is('customers.deleted_at', null)
+    return {
+      totalReceivable: 0,
+      totalReceived: 0,
+      totalOverdue: 0,
+      activeContracts: activeCount ?? 0,
+      closedContracts: closedCount ?? 0,
+    }
+  }
 
-  // Installments totals
+  // Installments totals (apenas de contratos cujo cliente não está excluído)
   const { data: installments, error: iErr } = await supabase
     .from('contract_installments')
     .select('amount, amount_paid, status_id')
     .eq('company_id', companyId)
     .is('deleted_at', null)
+    .in('contract_id', contractIds)
 
   if (iErr) throw iErr
 
@@ -214,22 +301,24 @@ export async function getFinancialSummary(
     }
   }
 
-  // Contract counts
+  // Contract counts (apenas contratos cujo cliente não está excluído)
   const { count: activeCount, error: acErr } = await supabase
     .from('contracts')
-    .select('id', { count: 'exact', head: true })
+    .select('id, customer:customers!inner(id)', { count: 'exact', head: true })
     .eq('company_id', companyId)
     .eq('status_id', CONTRACT_STATUS.ACTIVE)
     .is('deleted_at', null)
+    .is('customers.deleted_at', null)
 
   if (acErr) throw acErr
 
   const { count: closedCount, error: ccErr } = await supabase
     .from('contracts')
-    .select('id', { count: 'exact', head: true })
+    .select('id, customer:customers!inner(id)', { count: 'exact', head: true })
     .eq('company_id', companyId)
     .eq('status_id', CONTRACT_STATUS.CLOSED)
     .is('deleted_at', null)
+    .is('customers.deleted_at', null)
 
   if (ccErr) throw ccErr
 
@@ -248,13 +337,23 @@ export async function getOverdueSummary(
   companyId: string
 ): Promise<OverdueBucket[]> {
   const supabase = createClient()
-  const today = new Date()
+  const contractIds = await getContractIdsWithActiveCustomer(companyId)
+  if (contractIds.length === 0) {
+    return [
+      { range: '1-30', count: 0, total: 0 },
+      { range: '31-60', count: 0, total: 0 },
+      { range: '61-90', count: 0, total: 0 },
+      { range: '90+', count: 0, total: 0 },
+    ]
+  }
 
+  const today = new Date()
   const { data, error } = await supabase
     .from('contract_installments')
     .select('due_date, amount, amount_paid')
     .eq('company_id', companyId)
     .is('deleted_at', null)
+    .in('contract_id', contractIds)
     .lt('due_date', today.toISOString().split('T')[0])
     .in('status_id', [
       INSTALLMENT_STATUS.OPEN,

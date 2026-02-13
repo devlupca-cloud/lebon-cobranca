@@ -1,17 +1,25 @@
 'use client'
 
 import { Button, Input, LoadingScreen } from '@/components/ui'
+import { useHeader } from '@/contexts/header-context'
 import { useCompanyId } from '@/hooks/use-company-id'
-import { card, input, label as labelClass, pageTitle, pageSubtitle, buttonPrimary, buttonSecondary } from '@/lib/design'
+import { card, input, label as labelClass, pageSubtitle, buttonPrimary, buttonSecondary } from '@/lib/design'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { MdArrowBack } from 'react-icons/md'
 import { maskCurrency } from '@/lib/format'
 
 type Conformidade = 'funcionario' | 'cliente' | 'cliente_bloqueado'
 
 export default function CadastroGeralPage() {
+  const { setTitle, setBreadcrumb } = useHeader()
   const { companyId, loading: companyLoading, error: companyError } = useCompanyId()
+
+  useEffect(() => {
+    setTitle('Cadastro Geral')
+    setBreadcrumb([{ label: 'Home', href: '/home' }, { label: 'Cadastro Geral' }])
+    return () => { setTitle(''); setBreadcrumb([]) }
+  }, [setTitle, setBreadcrumb])
 
   const [conformidade, setConformidade] = useState<Conformidade>('cliente')
   const [codigoCliente, setCodigoCliente] = useState('')
@@ -52,8 +60,7 @@ export default function CadastroGeralPage() {
   if (companyError || !companyId) {
     return (
       <div className="p-6">
-        <h1 className={pageTitle}>Cadastro Geral</h1>
-        <p className="mt-2 text-amber-600">Configure sua empresa para acessar esta tela.</p>
+        <p className="text-amber-600">Configure sua empresa para acessar esta tela.</p>
       </div>
     )
   }
@@ -61,12 +68,9 @@ export default function CadastroGeralPage() {
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className={pageTitle}>Cadastro Geral</h1>
-          <p className={pageSubtitle}>
-            Crie um novo contrato selecionando um cliente e preenchendo os dados financeiros
-          </p>
-        </div>
+        <p className={pageSubtitle}>
+          Crie um novo contrato selecionando um cliente e preenchendo os dados financeiros
+        </p>
         <Link href="/home" className={buttonSecondary + ' inline-flex items-center gap-2'}>
           <MdArrowBack className="h-5 w-5" />
           Voltar

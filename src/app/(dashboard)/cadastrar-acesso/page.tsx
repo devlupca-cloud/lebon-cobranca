@@ -1,7 +1,6 @@
 'use client'
 
-import { Button, Input, Modal } from '@/components/ui'
-import { LoadingScreen } from '@/components/ui'
+import { Button, ConfirmModal, Input, LoadingScreen, Modal } from '@/components/ui'
 import { createCompanyUserWithPassword } from '@/app/(dashboard)/cadastrar-acesso/actions'
 import {
   getCompanyUsers,
@@ -10,12 +9,14 @@ import {
   type UpdateCompanyUserInput,
 } from '@/lib/supabase/users'
 import type { CompanyUser } from '@/types/database'
+import { useHeader } from '@/contexts/header-context'
 import { useCompanyId } from '@/hooks/use-company-id'
-import { buttonPrimary, card, input, label as labelClass, pageTitle } from '@/lib/design'
+import { buttonPrimary, card, input, label as labelClass } from '@/lib/design'
 import { useCallback, useEffect, useState } from 'react'
 import { MdEdit, MdPersonOff } from 'react-icons/md'
 
 export default function CadastrarAcessoPage() {
+  const { setTitle, setBreadcrumb } = useHeader()
   const { companyId, loading: companyLoading, error: companyError } = useCompanyId()
   const [users, setUsers] = useState<CompanyUser[]>([])
   const [loading, setLoading] = useState(true)
@@ -27,6 +28,8 @@ export default function CadastrarAcessoPage() {
   const [submitLoading, setSubmitLoading] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [createSuccessPassword, setCreateSuccessPassword] = useState<string | null>(null)
+  const [userToRemove, setUserToRemove] = useState<CompanyUser | null>(null)
+  const [removingId, setRemovingId] = useState<string | null>(null)
 
   const fetchUsers = useCallback(async () => {
     if (!companyId) return
@@ -46,6 +49,15 @@ export default function CadastrarAcessoPage() {
     if (!companyId) return
     fetchUsers()
   }, [companyId, fetchUsers])
+
+  useEffect(() => {
+    setTitle('Cadastrar Acesso')
+    setBreadcrumb([{ label: 'Home', href: '/home' }, { label: 'Cadastrar Acesso' }])
+    return () => {
+      setTitle('')
+      setBreadcrumb([])
+    }
+  }, [setTitle, setBreadcrumb])
 
   const openEdit = (u: CompanyUser) => {
     setEditForm({
@@ -116,25 +128,19 @@ export default function CadastrarAcessoPage() {
     }
   }
 
-  const handleRemoverAcesso = async (user: CompanyUser) => {
-    if (!companyId) return
-    const nome = user.name ?? user.email ?? 'este usuário'
-    if (
-      !confirm(
-        `Remover o acesso de ${nome}? Essa pessoa não poderá mais acessar a plataforma com esta empresa.`
-      )
-    )
-      return
-    setSubmitLoading(true)
+  const handleConfirmRemoverAcesso = async () => {
+    if (!userToRemove || !companyId) return
+    setRemovingId(userToRemove.id)
     setError(null)
     try {
-      await deactivateCompanyUser(user.id, companyId)
+      await deactivateCompanyUser(userToRemove.id, companyId)
+      setUserToRemove(null)
       closeEditModal()
       await fetchUsers()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao remover acesso.')
     } finally {
-      setSubmitLoading(false)
+      setRemovingId(null)
     }
   }
 
@@ -142,8 +148,7 @@ export default function CadastrarAcessoPage() {
   if (companyError || !companyId) {
     return (
       <div className="p-6">
-        <h1 className={pageTitle}>Cadastrar Acesso</h1>
-        <p className="mt-2 text-amber-600">
+        <p className="text-amber-600">
           Sua conta não está vinculada a nenhuma empresa, ou ocorreu um erro ao carregar. Faça login com um usuário que já tenha acesso a uma empresa (cadastrado em Cadastrar Acesso).
         </p>
         {companyError && (
@@ -155,8 +160,6 @@ export default function CadastrarAcessoPage() {
 
   return (
     <div className="p-6">
-      <h1 className={pageTitle}>Cadastrar Acesso</h1>
-
       {error && (
         <div className="mt-4 rounded-[8px] border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
           {error}
@@ -269,7 +272,7 @@ export default function CadastrarAcessoPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleRemoverAcesso(u)}
+                    onClick={() => setUserToRemove(u)}
                     disabled={submitLoading}
                     className="rounded-[8px] p-2 text-[#57636C] transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                     aria-label={`Remover acesso de ${u.name ?? u.email}`}
@@ -299,7 +302,10 @@ export default function CadastrarAcessoPage() {
                 type="button"
                 onClick={() => {
                   const u = users.find((x) => x.id === editingId)
-                  if (u) handleRemoverAcesso(u)
+                  if (u) {
+                    setUserToRemove(u)
+                    closeEditModal()
+                  }
                 }}
                 disabled={submitLoading}
                 className="rounded-[8px] border border-red-200 bg-white px-4 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
@@ -360,6 +366,23 @@ export default function CadastrarAcessoPage() {
           </div>
         </form>
       </Modal>
+
+      <ConfirmModal
+        open={userToRemove !== null}
+        onClose={() => setUserToRemove(null)}
+        onConfirm={handleConfirmRemoverAcesso}
+        title="Remover acesso"
+        confirmLabel="Remover acesso"
+        variant="danger"
+        loading={removingId === userToRemove?.id}
+      >
+        {userToRemove && (
+          <>
+            Remover o acesso de <strong>{userToRemove.name ?? userToRemove.email ?? 'este usuário'}</strong>?
+            Essa pessoa não poderá mais acessar a plataforma com esta empresa.
+          </>
+        )}
+      </ConfirmModal>
     </div>
   )
 }

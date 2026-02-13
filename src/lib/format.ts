@@ -37,6 +37,29 @@ export function maskCNPJ(value: string | null | undefined): string {
   return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`
 }
 
+/** Formata telefone: (11) 3456-7890 (fixo) ou (11) 98888-7777 (celular) */
+export function formatPhone(value: string | null | undefined): string {
+  const d = digitsOnly(value)
+  if (d.length === 0) return value && value.trim() ? value : '—'
+  if (d.length === 11) {
+    return d.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3')
+  }
+  if (d.length === 10) {
+    return d.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3')
+  }
+  return value && value.trim() ? value : '—'
+}
+
+/** Máscara de telefone ao digitar: fixo (10) → (11) 3456-7890, celular (11) → (11) 98888-7777 */
+export function maskPhone(value: string | null | undefined): string {
+  const d = digitsOnly(value ?? '').slice(0, 11)
+  if (d.length === 0) return ''
+  if (d.length <= 2) return `(${d}`
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
+}
+
 /** Exibe CPF ou CNPJ formatado conforme o tamanho (11 = CPF, 14 = CNPJ) */
 export function formatCPFOrCNPJ(cpf: string | null | undefined, cnpj: string | null | undefined): string {
   const cnpjDigits = digitsOnly(cnpj)

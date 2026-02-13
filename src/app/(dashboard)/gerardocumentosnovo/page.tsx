@@ -2,6 +2,7 @@
 
 import { Button } from '@/components/ui'
 import { LoadingScreen } from '@/components/ui'
+import { useHeader } from '@/contexts/header-context'
 import { useCompanyId } from '@/hooks/use-company-id'
 import {
   getContractsFiltered,
@@ -13,7 +14,7 @@ import { generateContractPdf } from '@/lib/pdf/contract-pdf'
 import { generateQuitacaoPdf } from '@/lib/pdf/quitacao-pdf'
 import { CONTRACT_STATUS } from '@/types/enums'
 import { formatCPFOrCNPJ } from '@/lib/format'
-import { buttonPrimary, buttonSecondary, card, input, label as labelClass, pageSubtitle, pageTitle } from '@/lib/design'
+import { buttonPrimary, buttonSecondary, card, input, label as labelClass, pageSubtitle } from '@/lib/design'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ContractWithRelations } from '@/types/database'
 import { MdDescription, MdDownload, MdPrint, MdVisibility } from 'react-icons/md'
@@ -59,8 +60,18 @@ type GeneratedDoc = {
 }
 
 export default function GerarDocumentosPage() {
+  const { setTitle, setBreadcrumb } = useHeader()
   const { companyId, loading: companyLoading, error: companyError } = useCompanyId()
   const [contractsAll, setContractsAll] = useState<ContractWithRelations[]>([])
+
+  useEffect(() => {
+    setTitle('Gerar Documentos')
+    setBreadcrumb([{ label: 'Home', href: '/home' }, { label: 'Gerar Documentos' }])
+    return () => {
+      setTitle('')
+      setBreadcrumb([])
+    }
+  }, [setTitle, setBreadcrumb])
   const [contractsClosed, setContractsClosed] = useState<ContractWithRelations[]>([])
   const [loadingContracts, setLoadingContracts] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -244,15 +255,9 @@ export default function GerarDocumentosPage() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center gap-2">
-        <MdDescription className="h-7 w-7 text-[#1E3A8A]" aria-hidden />
-        <div>
-          <h1 className={pageTitle}>Gerar Documentos</h1>
-          <p className={pageSubtitle}>
-            Selecione um contrato e o tipo de documento para gerar
-          </p>
-        </div>
-      </div>
+      <p className={pageSubtitle}>
+        Selecione um contrato e o tipo de documento para gerar
+      </p>
 
       {error && (
         <p className="mt-4 text-sm text-red-600" role="alert">

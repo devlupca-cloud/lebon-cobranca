@@ -1,6 +1,6 @@
 'use client'
 
-import { Button, Modal } from '@/components/ui'
+import { Button, ConfirmModal, Modal } from '@/components/ui'
 import { getInstallmentsByContract, getContractById, checkAndCloseContract } from '@/lib/supabase/contracts'
 import { recordPayment, quitContract, getPaymentsByInstallment, deletePayment } from '@/lib/supabase/payments'
 import type { ContractInstallment } from '@/types/database'
@@ -77,6 +77,8 @@ export function PopupQuitacao({
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [expandedInstallmentId, setExpandedInstallmentId] = useState<string | null>(null)
   const [markingAsPaidId, setMarkingAsPaidId] = useState<string | null>(null)
+  const [paymentToRevertId, setPaymentToRevertId] = useState<string | null>(null)
+  const [confirmQuitarOpen, setConfirmQuitarOpen] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (!contractId || !open) return
@@ -195,13 +197,13 @@ export function PopupQuitacao({
     }
   }
 
-  const handleRevertPayment = async (paymentId: string) => {
-    if (!companyId) return
-    if (!confirm('Estornar este pagamento?')) return
+  const handleConfirmRevertPayment = async () => {
+    if (!paymentToRevertId || !companyId) return
     setSubmitting(true)
     setPaymentError(null)
     try {
-      await deletePayment(paymentId, companyId)
+      await deletePayment(paymentToRevertId, companyId)
+      setPaymentToRevertId(null)
       await fetchData()
       setExpandedInstallmentId(null)
     } catch (e) {
@@ -242,8 +244,7 @@ export function PopupQuitacao({
   }
 
   /** Quitar contrato: marca todas as parcelas em aberto como pagas e fecha o contrato (uma RPC). */
-  const handleQuitarContrato = async () => {
-    if (!contractId || !companyId) return
+  const handleQuitarContratoClick = () => {
     const openCount = installments.filter(
       (i) => i.status_id !== INSTALLMENT_STATUS.CANCELED && Number(i.amount) - Number(i.amount_paid) > 0
     ).length
@@ -251,10 +252,15 @@ export function PopupQuitacao({
       setQuitacaoMessage({ type: 'info', text: 'Não há parcelas em aberto para quitar.' })
       return
     }
-    if (!confirm(`Quitar contrato? Serão marcadas ${openCount} parcela(s) como pagas e o contrato será encerrado.`)) return
+    setConfirmQuitarOpen(true)
+  }
+
+  const handleConfirmQuitarContrato = async () => {
+    if (!contractId || !companyId) return
     setSubmitting(true)
     setQuitacaoMessage(null)
     setPaymentError(null)
+    setConfirmQuitarOpen(false)
     try {
       const result = await quitContract(contractId, companyId, PAYMENT_METHOD.PIX)
       setQuitacaoMessage({
@@ -280,7 +286,12 @@ export function PopupQuitacao({
     )
   }
 
+  const openCountQuitar = installments.filter(
+    (i) => i.status_id !== INSTALLMENT_STATUS.CANCELED && Number(i.amount) - Number(i.amount_paid) > 0
+  ).length
+
   return (
+    <>
     <Modal
       open={open}
       onClose={handleCloseModal}
@@ -324,7 +335,7 @@ export function PopupQuitacao({
             type="button"
             variant="primary"
             size="sm"
-            onClick={handleQuitarContrato}
+            onClick={handleQuitarContratoClick}
             disabled={!companyId || submitting}
             className="inline-flex items-center gap-1.5"
           >
@@ -438,7 +449,7 @@ export function PopupQuitacao({
                           <td colSpan={7} className="bg-[#f1f4f8] px-3 py-3 align-top">
                             <PaymentHistory
                               installmentId={inst.id}
-                              onRevert={handleRevertPayment}
+                              onRevert={setPaymentToRevertId}
                               onClose={() => setExpandedInstallmentId(null)}
                               reverting={submitting}
                             />
@@ -512,6 +523,31 @@ export function PopupQuitacao({
         )}
       </div>
     </Modal>
+
+    <ConfirmModal
+      open={paymentToRevertId !== null}
+      onClose={() => setPaymentToRevertId(null)}
+      onConfirm={handleConfirmRevertPayment}
+      title="Estornar pagamento"
+      confirmLabel="Estornar"
+      variant="danger"
+      loading={submitting}
+    >
+      Estornar este pagamento? O valor será descontado da parcela e o registro de pagamento será revertido.
+    </ConfirmModal>
+
+    <ConfirmModal
+      open={confirmQuitarOpen}
+      onClose={() => setConfirmQuitarOpen(false)}
+      onConfirm={handleConfirmQuitarContrato}
+      title="Quitar contrato"
+      confirmLabel="Quitar"
+      variant="default"
+      loading={submitting}
+    >
+      Quitar contrato? Serão marcadas {openCountQuitar} parcela(s) como pagas e o contrato será encerrado.
+    </ConfirmModal>
+    </>
   )
 }
 

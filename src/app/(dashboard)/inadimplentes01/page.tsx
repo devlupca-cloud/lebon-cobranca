@@ -1,10 +1,11 @@
 'use client'
 
 import { LoadingScreen } from '@/components/ui'
+import { useHeader } from '@/contexts/header-context'
 import { useCompanyId } from '@/hooks/use-company-id'
 import { getOverdueInstallments } from '@/lib/supabase/installments'
 import type { OverdueInstallmentRow } from '@/lib/supabase/installments'
-import { buttonPrimary, buttonSecondary, card, input, pageTitle } from '@/lib/design'
+import { buttonPrimary, buttonSecondary, card, input, label as labelClass } from '@/lib/design'
 import { formatCPFOrCNPJ } from '@/lib/format'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -44,7 +45,7 @@ type ContractOverdueCard = {
 }
 
 const SITUACAO_OPTIONS = [
-  { value: '', label: 'Por Situação' },
+  { value: '', label: 'Todas as situações' },
   { value: '90+', label: '90+ dias' },
   { value: '61-90', label: '61-90 dias' },
   { value: '31-60', label: '31-60 dias' },
@@ -52,7 +53,7 @@ const SITUACAO_OPTIONS = [
 ] as const
 
 const DATA_OPTIONS = [
-  { value: '', label: 'Por Data' },
+  { value: '', label: 'Todo o período' },
   { value: '90', label: 'Últimos 90 dias' },
   { value: '180', label: 'Últimos 180 dias' },
   { value: '365', label: 'Último ano' },
@@ -135,6 +136,7 @@ function groupRowsByContract(rows: OverdueInstallmentRow[]): ContractOverdueCard
 }
 
 export default function InadimplentesPage() {
+  const { setTitle, setBreadcrumb } = useHeader()
   const { companyId, loading: companyLoading, error: companyError } = useCompanyId()
   const [rows, setRows] = useState<OverdueInstallmentRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -142,6 +144,15 @@ export default function InadimplentesPage() {
   const [search, setSearch] = useState('')
   const [filterSituacao, setFilterSituacao] = useState('')
   const [filterData, setFilterData] = useState('')
+
+  useEffect(() => {
+    setTitle('Inadimplentes')
+    setBreadcrumb([{ label: 'Home', href: '/home' }, { label: 'Inadimplentes' }])
+    return () => {
+      setTitle('')
+      setBreadcrumb([])
+    }
+  }, [setTitle, setBreadcrumb])
 
   const fetchOverdue = useCallback(async () => {
     if (!companyId) return
@@ -207,8 +218,7 @@ export default function InadimplentesPage() {
   if (companyError || !companyId) {
     return (
       <div className="p-6">
-        <h1 className={pageTitle}>Inadimplentes</h1>
-        <p className="mt-2 text-amber-600">
+        <p className="text-amber-600">
           Configure sua empresa (company_users) para acessar esta tela.
         </p>
       </div>
@@ -217,13 +227,6 @@ export default function InadimplentesPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <h1 className={pageTitle}>Inadimplentes</h1>
-        <Link href="/home" className={buttonSecondary}>
-          ← Voltar
-        </Link>
-      </div>
-
       {error && (
         <div className="mb-4 rounded-[8px] border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
           {error}
@@ -262,44 +265,84 @@ export default function InadimplentesPage() {
         </div>
       </div>
 
-      {/* Busca e filtros */}
-      <div className="mb-6 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px]">
-          <MdSearch className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#57636C]" aria-hidden />
-          <input
-            type="search"
-            className={input + ' pl-10'}
-            placeholder="Buscar cliente ou processo..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
+      {/* Filtros */}
+      <div className={card + ' mb-6 p-4'}>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-12 lg:items-end">
+          <div className="lg:col-span-5">
+            <label htmlFor="inad-search" className={labelClass}>
+              Buscar
+            </label>
+            <div className="relative">
+              <MdSearch className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#57636C]" aria-hidden />
+              <input
+                id="inad-search"
+                type="search"
+                className={input + ' pl-10'}
+                placeholder="Cliente ou número do processo..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="sm:col-span-2 lg:col-span-2">
+            <label htmlFor="inad-situacao" className={labelClass}>
+              Situação (dias em atraso)
+            </label>
+            <select
+              id="inad-situacao"
+              className={input}
+              value={filterSituacao}
+              onChange={(e) => setFilterSituacao(e.target.value)}
+            >
+              {SITUACAO_OPTIONS.map((o) => (
+                <option key={o.value || 'all'} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="sm:col-span-2 lg:col-span-2">
+            <label htmlFor="inad-data" className={labelClass}>
+              Período do vencimento
+            </label>
+            <select
+              id="inad-data"
+              className={input}
+              value={filterData}
+              onChange={(e) => setFilterData(e.target.value)}
+            >
+              {DATA_OPTIONS.map((o) => (
+                <option key={o.value || 'all'} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 sm:col-span-2 lg:col-span-3">
+            {(search.trim() || filterSituacao || filterData) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('')
+                  setFilterSituacao('')
+                  setFilterData('')
+                }}
+                className="text-sm font-medium text-[#1E3A8A] hover:underline"
+              >
+                Limpar filtros
+              </button>
+            )}
+            <button
+              type="button"
+              className={buttonSecondary + ' opacity-70'}
+              disabled
+              title="Em breve"
+            >
+              <MdDescription className="h-4 w-4" aria-hidden />
+              Relatórios
+            </button>
+          </div>
         </div>
-        <select
-          className={input + ' w-auto min-w-[140px]'}
-          value={filterSituacao}
-          onChange={(e) => setFilterSituacao(e.target.value)}
-        >
-          {SITUACAO_OPTIONS.map((o) => (
-            <option key={o.value || 'all'} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <select
-          className={input + ' w-auto min-w-[140px]'}
-          value={filterData}
-          onChange={(e) => setFilterData(e.target.value)}
-        >
-          {DATA_OPTIONS.map((o) => (
-            <option key={o.value || 'all'} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-        <button type="button" className={buttonPrimary} disabled>
-          <MdDescription className="h-5 w-5" aria-hidden />
-          Relatórios
-        </button>
       </div>
 
       {/* Lista de inadimplentes em cards */}

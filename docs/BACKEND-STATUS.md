@@ -110,6 +110,13 @@ Se der erro de policy já existente, ignore; significa que já está configurado
 
 2. **Bucket de arquivos**
    - No Supabase: Storage → criar bucket `documents` (se ainda não existir) e configurar policies por `company_id` ou por pasta por empresa.
+   - **Se aparecer "Bucket not found" (404):**
+     - No Supabase Dashboard → **Storage**: confira o **nome exato** do bucket (maiúsculas/minúsculas importam).
+     - O app espera por padrão: `documents` (documentos de clientes/contratos) e `photo_user` (foto do perfil).
+     - Se o bucket tiver outro nome, defina em `.env.local`: `NEXT_PUBLIC_SUPABASE_BUCKET_DOCUMENTS=nome_do_seu_bucket` e/ou `NEXT_PUBLIC_SUPABASE_BUCKET_PHOTO_USER=nome_do_bucket_foto`.
+     - Reinicie o servidor (`npm run dev`) após alterar as variáveis.
+   - **Se aparecer 403 "new row violates row-level security":**
+     - O bucket existe mas faltam políticas de Storage. No Supabase: **SQL Editor** → rode o conteúdo da migration `supabase/migrations/20250212000004_storage_rls_file_and_photo_user.sql` (políticas de INSERT/SELECT/DELETE para os buckets `file` e `photo_user`). Ou crie manualmente em **Storage → Policies** para o bucket: permitir INSERT, SELECT e DELETE para usuários autenticados.
 
 3. **RPCs opcionais (performance)**
    - Se as telas de fluxo de caixa ou resumo financeiro ficarem lentas, dá para criar funções SQL `get_cash_flow` e `get_financial_summary` no Supabase e chamar via RPC em vez de buscar muitos dados no client.
@@ -118,6 +125,16 @@ Se der erro de policy já existente, ignore; significa que já está configurado
    - Criar um contrato ativo (gerar parcelas), registrar um pagamento, verificar quitação e fechamento do contrato; conferir saldo do cliente e relatórios.
 
 ---
+
+## Exclusão lógica de cliente (delete)
+
+Ao **excluir** um cliente (botão na listagem), é feita **exclusão lógica**: apenas `deleted_at` é preenchido. Os dados continuam no banco, mas:
+
+- **Listagem de clientes:** a RPC `get_customers` **deve** filtrar `deleted_at IS NULL`. Confira no SQL Editor do Supabase se a função inclui esse filtro (veja migration `20250212000006_get_customers_filter_deleted_at.sql`).
+- **Contratos:** a listagem de contratos e os relatórios **não** incluem contratos cujo cliente está excluído (filtro por `customers.deleted_at` no join).
+- **Relatórios (fluxo de caixa, inadimplentes, resumo financeiro, dashboard):** somas e contagens consideram apenas contratos de clientes **não** excluídos, para que os dados do cliente excluído parem de interferir na plataforma.
+
+Assim, o cliente “excluído” some da listagem e deixa de entrar em totais e indicadores.
 
 ## Resumo rápido
 

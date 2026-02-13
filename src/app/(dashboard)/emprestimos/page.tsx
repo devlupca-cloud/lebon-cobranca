@@ -1,10 +1,11 @@
 'use client'
 
 import { Button, Input, LoadingScreen } from '@/components/ui'
+import { useHeader } from '@/contexts/header-context'
 import { useCompanyId } from '@/hooks/use-company-id'
-import { card, input, label as labelClass, pageTitle, pageSubtitle, buttonPrimary, buttonSecondary } from '@/lib/design'
+import { card, input, label as labelClass, pageSubtitle, buttonPrimary, buttonSecondary } from '@/lib/design'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { MdArrowBack } from 'react-icons/md'
 import { maskCurrency } from '@/lib/format'
 
@@ -47,8 +48,7 @@ export default function EmprestimosPage() {
   if (companyError || !companyId) {
     return (
       <div className="p-6">
-        <h1 className={pageTitle}>Empréstimos</h1>
-        <p className="mt-2 text-amber-600">Configure sua empresa para acessar esta tela.</p>
+        <p className="text-amber-600">Configure sua empresa para acessar esta tela.</p>
       </div>
     )
   }
@@ -56,10 +56,7 @@ export default function EmprestimosPage() {
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className={pageTitle}>Empréstimos</h1>
-          <p className={pageSubtitle}>Acordo guiado ou negociado – dados do empréstimo</p>
-        </div>
+        <p className={pageSubtitle}>Acordo guiado ou negociado – dados do empréstimo</p>
         <Link href="/home" className={buttonSecondary + ' inline-flex items-center gap-2'}>
           <MdArrowBack className="h-5 w-5" />
           Voltar

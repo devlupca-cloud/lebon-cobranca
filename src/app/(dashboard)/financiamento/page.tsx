@@ -1,13 +1,14 @@
 'use client'
 
 import { Button, Input, LoadingScreen } from '@/components/ui'
+import { useHeader } from '@/contexts/header-context'
 import { getCustomersAutocomplete, type CustomerAutocompleteItem } from '@/lib/supabase/customers'
 import { insertContract } from '@/lib/supabase/contracts'
 import { useCompanyId } from '@/hooks/use-company-id'
 import { CONTRACT_CATEGORY, CONTRACT_STATUS } from '@/types/enums'
 import { CONTRACT_TYPE } from '@/types/enums'
 import { formatCPFOrCNPJ } from '@/lib/format'
-import { card, input, label as labelClass, pageTitle, pageSubtitle, buttonPrimary, buttonSecondary } from '@/lib/design'
+import { card, input, label as labelClass, pageSubtitle, buttonPrimary, buttonSecondary } from '@/lib/design'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -18,7 +19,14 @@ type TipoFinanciamento = 'caixa' | 'aprovado'
 
 export default function FinanciamentoPage() {
   const router = useRouter()
+  const { setTitle, setBreadcrumb } = useHeader()
   const { companyId, loading: companyLoading, error: companyError } = useCompanyId()
+
+  useEffect(() => {
+    setTitle('Financiamento')
+    setBreadcrumb([{ label: 'Home', href: '/home' }, { label: 'Contratos', href: '/contratos' }, { label: 'Financiamento' }])
+    return () => { setTitle(''); setBreadcrumb([]) }
+  }, [setTitle, setBreadcrumb])
 
   const [customerSearch, setCustomerSearch] = useState('')
   const [customerOptions, setCustomerOptions] = useState<CustomerAutocompleteItem[]>([])
@@ -134,8 +142,7 @@ export default function FinanciamentoPage() {
   if (companyError || !companyId) {
     return (
       <div className="p-6">
-        <h1 className={pageTitle}>Financiamento</h1>
-        <p className="mt-2 text-amber-600">Configure sua empresa para acessar esta tela.</p>
+        <p className="text-amber-600">Configure sua empresa para acessar esta tela.</p>
       </div>
     )
   }
@@ -143,10 +150,7 @@ export default function FinanciamentoPage() {
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className={pageTitle}>Novo contrato de financiamento</h1>
-          <p className={pageSubtitle}>Preencha os dados do cliente e do financiamento</p>
-        </div>
+        <p className={pageSubtitle}>Preencha os dados do cliente e do financiamento</p>
         <Link href="/contratos" className={buttonSecondary + ' inline-flex items-center gap-2'}>
           <MdArrowBack className="h-5 w-5" />
           Voltar

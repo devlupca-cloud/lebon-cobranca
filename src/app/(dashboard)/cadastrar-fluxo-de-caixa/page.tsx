@@ -2,17 +2,25 @@
 
 import { Button } from '@/components/ui'
 import { LoadingScreen } from '@/components/ui'
+import { useHeader } from '@/contexts/header-context'
 import { useCompanyId } from '@/hooks/use-company-id'
 import { createExpense } from '@/lib/supabase/expenses'
-import { buttonPrimary, buttonSecondary, card, input, label as labelClass, pageTitle } from '@/lib/design'
+import { buttonPrimary, buttonSecondary, card, input, label as labelClass } from '@/lib/design'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { MdDescription } from 'react-icons/md'
 
 export default function CadastrarFluxoDeCaixaPage() {
   const router = useRouter()
+  const { setTitle, setBreadcrumb } = useHeader()
   const { companyId, loading: companyLoading, error: companyError } = useCompanyId()
+
+  useEffect(() => {
+    setTitle('Cadastrar Fluxo de Caixa')
+    setBreadcrumb([{ label: 'Home', href: '/home' }, { label: 'Contas a pagar', href: '/fluxo-caixa' }, { label: 'Cadastrar' }])
+    return () => { setTitle(''); setBreadcrumb([]) }
+  }, [setTitle, setBreadcrumb])
   const [empresa, setEmpresa] = useState('')
   const [nome, setNome] = useState('')
   const [titulo, setTitulo] = useState('')
@@ -66,8 +74,7 @@ export default function CadastrarFluxoDeCaixaPage() {
   if (companyError || !companyId) {
     return (
       <div className="p-6">
-        <h1 className={pageTitle}>Fluxo de Caixa</h1>
-        <p className="mt-2 text-amber-600">
+        <p className="text-amber-600">
           Sua conta não está vinculada a nenhuma empresa.
         </p>
       </div>
@@ -77,10 +84,6 @@ export default function CadastrarFluxoDeCaixaPage() {
   return (
     <div className="p-6">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <MdDescription className="h-7 w-7 text-[#1E3A8A]" aria-hidden />
-          <h1 className={pageTitle}>Fluxo de Caixa</h1>
-        </div>
         <Link href="/fluxo-caixa" className={buttonSecondary}>
           ← Voltar
         </Link>

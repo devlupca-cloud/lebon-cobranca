@@ -15,9 +15,36 @@ export async function getCompanyId(): Promise<string | null> {
   return profile?.company_id ?? null
 }
 
+/** Resultado da RPC get_my_profile (uma única query no banco). */
+type GetMyProfileRpcRow = {
+  company_id: string
+  name: string | null
+  email: string | null
+  photo_user: string | null
+}
+
+/**
+ * Obtém o perfil do usuário autenticado em uma única chamada à RPC get_my_profile.
+ * Use no dashboard para evitar múltiplas queries. Não chama auth.getUser().
+ */
+export async function getMyProfileRpc(): Promise<Profile | null> {
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc('get_my_profile')
+  if (error || data == null) return null
+  const row = data as GetMyProfileRpcRow | null
+  if (!row?.company_id) return null
+  return {
+    company_id: row.company_id,
+    name: row.name ?? null,
+    email: row.email ?? null,
+    photo_user: row.photo_user ?? null,
+  }
+}
+
 /**
  * Obtém o perfil do usuário (company_users) para o usuário logado.
  * Tenta por id = user.id e depois por user_id = user.id.
+ * Para o dashboard, prefira usar o contexto (DashboardAuthProvider) que carrega user + perfil em uma carga.
  */
 export async function getProfile(): Promise<Profile | null> {
   const supabase = createClient()

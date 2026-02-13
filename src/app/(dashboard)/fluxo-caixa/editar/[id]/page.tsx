@@ -2,9 +2,10 @@
 
 import { Button } from '@/components/ui'
 import { LoadingScreen } from '@/components/ui'
+import { useHeader } from '@/contexts/header-context'
 import { useCompanyId } from '@/hooks/use-company-id'
 import { getExpenseById, updateExpense } from '@/lib/supabase/expenses'
-import { buttonPrimary, buttonSecondary, card, input, label as labelClass, pageTitle } from '@/lib/design'
+import { buttonPrimary, buttonSecondary, card, input, label as labelClass } from '@/lib/design'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
@@ -14,8 +15,15 @@ export default function EditarFluxoPage() {
   const params = useParams()
   const router = useRouter()
   const id = typeof params.id === 'string' ? params.id : ''
+  const { setTitle, setBreadcrumb } = useHeader()
   const { companyId, loading: companyLoading, error: companyError } = useCompanyId()
   const [empresa, setEmpresa] = useState('')
+
+  useEffect(() => {
+    setTitle('Editar conta a pagar')
+    setBreadcrumb([{ label: 'Home', href: '/home' }, { label: 'Contas a pagar', href: '/fluxo-caixa' }, { label: 'Editar' }])
+    return () => { setTitle(''); setBreadcrumb([]) }
+  }, [setTitle, setBreadcrumb])
   const [nome, setNome] = useState('')
   const [titulo, setTitulo] = useState('')
   const [descricao, setDescricao] = useState('')
@@ -97,8 +105,7 @@ export default function EditarFluxoPage() {
   if (companyError || !companyId) {
     return (
       <div className="p-6">
-        <h1 className={pageTitle}>Fluxo de Caixa</h1>
-        <p className="mt-2 text-amber-600">Sua conta não está vinculada a nenhuma empresa.</p>
+        <p className="text-amber-600">Sua conta não está vinculada a nenhuma empresa.</p>
       </div>
     )
   }
@@ -116,11 +123,7 @@ export default function EditarFluxoPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <MdDescription className="h-7 w-7 text-[#1E3A8A]" aria-hidden />
-          <h1 className={pageTitle}>Fluxo de Caixa</h1>
-        </div>
+      <div className="mb-6 flex flex-wrap items-center justify-end gap-4">
         <Link href="/fluxo-caixa" className={buttonSecondary}>
           ← Voltar
         </Link>

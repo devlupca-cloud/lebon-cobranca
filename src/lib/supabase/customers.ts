@@ -12,6 +12,11 @@ export type GetCustomersParams = {
   statusId?: number | null
 }
 
+/**
+ * Lista clientes (via RPC get_customers).
+ * Importante: a RPC get_customers no Supabase DEVE filtrar por deleted_at IS NULL,
+ * para que clientes com exclusão lógica não apareçam na listagem.
+ */
 export async function getCustomers(
   params: GetCustomersParams
 ): Promise<GetCustomersResponse> {

@@ -1,19 +1,19 @@
 'use client'
 
-import { Button } from '@/components/ui'
-import { LoadingScreen } from '@/components/ui'
+import { Button, ConfirmModal, LoadingScreen, TablePagination } from '@/components/ui'
 import { PopupDetalhesCliente } from '@/components/popup-detalhes-cliente'
 import { useHeader } from '@/contexts/header-context'
 import { deleteCustomer, getCustomers } from '@/lib/supabase/customers'
-import { formatCPFOrCNPJ } from '@/lib/format'
+import { formatCPFOrCNPJ, formatPhone } from '@/lib/format'
 import { useCompanyId } from '@/hooks/use-company-id'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { MdAdd, MdArrowBack, MdEdit, MdEditDocument, MdPersonOff, MdSearch, MdVisibility } from 'react-icons/md'
-import { buttonPrimary, buttonSecondary, input, label as labelClass, pageSubtitle, pageTitle, pillType, tableCell, tableCellMuted, tableHead } from '@/lib/design'
+import { buttonPrimary, buttonSecondary, input, label as labelClass, pageSubtitle, pillType, tableCell, tableCellMuted, tableHead } from '@/lib/design'
 import type { CustomerFromAPI } from '@/types/database'
 
 const list = (arr: unknown): CustomerFromAPI[] => (Array.isArray(arr) ? arr : [])
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const
 
 export default function ClientesPage() {
   const { companyId, loading: companyLoading, error: companyError } = useCompanyId()
@@ -21,12 +21,15 @@ export default function ClientesPage() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const [searchName, setSearchName] = useState('')
   const [searchCpf, setSearchCpf] = useState('')
   const [searchCnpj, setSearchCnpj] = useState('')
   const [statusFilter, setStatusFilter] = useState<number>(0)
   const [detailCustomer, setDetailCustomer] = useState<CustomerFromAPI | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+  const [customerToDelete, setCustomerToDelete] = useState<CustomerFromAPI | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   // Debounced search: only fires the RPC after 400ms of inactivity
@@ -46,6 +49,15 @@ export default function ClientesPage() {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [searchName, searchCpf, searchCnpj, statusFilter])
 
+  // Ao mudar filtros ou itens por página, voltar para a página 1
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedFilters])
+
+  useEffect(() => {
+    setPage(1)
+  }, [pageSize])
+
   const fetchCustomers = useCallback(async () => {
     if (!companyId) return
     setLoading(true)
@@ -53,8 +65,8 @@ export default function ClientesPage() {
     try {
       const res = await getCustomers({
         companyId,
-        limit: 50,
-        offset: 0,
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
         name: debouncedFilters.name || undefined,
         cpf: debouncedFilters.cpf || undefined,
         cnpj: debouncedFilters.cnpj || undefined,
@@ -67,7 +79,7 @@ export default function ClientesPage() {
     } finally {
       setLoading(false)
     }
-  }, [companyId, debouncedFilters])
+  }, [companyId, debouncedFilters, page, pageSize])
 
   useEffect(() => {
     if (!companyId) return
@@ -83,57 +95,58 @@ export default function ClientesPage() {
     setDebouncedFilters({ name: '', cpf: '', cnpj: '', status: 0 })
   }, [])
 
-  const handleDelete = useCallback(
-    async (c: CustomerFromAPI) => {
-      const name = c.full_name ?? c.legal_name ?? c.trade_name ?? 'este cliente'
-      if (!companyId || !window.confirm(`Excluir ${name}? Esta ação marca o cliente como excluído (exclusão lógica).`)) return
-      setDeletingId(c.id)
-      setError(null)
-      try {
-        await deleteCustomer(c.id, companyId)
-        await fetchCustomers()
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Erro ao excluir cliente.')
-      } finally {
-        setDeletingId(null)
-      }
-    },
-    [companyId, fetchCustomers]
-  )
+  const handleDeleteClick = useCallback((c: CustomerFromAPI) => {
+    setCustomerToDelete(c)
+  }, [])
 
-  const { setLeftContent } = useHeader()
+  const handleConfirmDelete = useCallback(async () => {
+    const c = customerToDelete
+    if (!c || !companyId) return
+    setDeletingId(c.id)
+    setError(null)
+    try {
+      await deleteCustomer(c.id, companyId)
+      setCustomerToDelete(null)
+      await fetchCustomers()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro ao excluir cliente.')
+    } finally {
+      setDeletingId(null)
+    }
+  }, [companyId, customerToDelete, fetchCustomers])
+
+  const { setLeftContent, setTitle, setBreadcrumb } = useHeader()
   useEffect(() => {
+    setTitle('Clientes')
+    setBreadcrumb([
+      { label: 'Home', href: '/home' },
+      { label: 'Clientes' }
+    ])
     setLeftContent(
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 mt-2">
         <Link href="/cadastrar-cliente">
           <Button
             type="button"
-            className="border border-white bg-[#1E3A8A] text-white hover:bg-[#1E3A8A]/90"
+            className={buttonPrimary}
           >
             <MdAdd className="mr-2 h-4 w-4" />
             Novo Cliente
           </Button>
         </Link>
-        <Link href="/home">
-          <Button
-            type="button"
-            className="border border-white bg-[#1E3A8A] text-white hover:bg-[#1E3A8A]/90"
-          >
-            <MdArrowBack className="mr-2 h-4 w-4" />
-            Voltar
-          </Button>
-        </Link>
       </div>
     )
-    return () => setLeftContent(null)
-  }, [setLeftContent])
+    return () => {
+      setTitle('')
+      setBreadcrumb([])
+      setLeftContent(null)
+    }
+  }, [setLeftContent, setTitle, setBreadcrumb])
 
   if (companyLoading) return <LoadingScreen message="Carregando..." />
   if (companyError || !companyId) {
     return (
       <div className="p-6">
-        <h1 className="text-2xl font-semibold text-[#14181B]">Clientes</h1>
-        <p className="mt-2 text-amber-600">
+        <p className="text-amber-600">
           Sua conta não está vinculada a nenhuma empresa. Faça login com um usuário cadastrado em Cadastrar Acesso (com acesso a uma empresa).
         </p>
         {companyError && (
@@ -144,21 +157,21 @@ export default function ClientesPage() {
   }
 
   const customerList = list(customers)
-  const count = total
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1
+  const to = Math.min(page * pageSize, total)
 
   return (
     <div className="flex-1 overflow-auto p-6">
-        {/* Título + contador na mesma linha */}
         <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className={pageTitle}>Lista de Clientes</h1>
-            <p className={pageSubtitle}>
-              Gerencie todos os clientes cadastrados no sistema
-            </p>
-          </div>
-          <p className="text-sm text-[#57636C]">
-            {count} cliente(s) encontrado(s)
+          <p className={pageSubtitle}>
+            Gerencie todos os clientes cadastrados no sistema
           </p>
+          {!loading && (
+            <p className="text-sm text-[#57636C]">
+              {total} cliente(s) encontrado(s)
+            </p>
+          )}
         </div>
 
         {/* Filtros em linha (igual ao Flutter: Nome/Razão Social, CPF, CNPJ, Status, Relatórios, Limpar) */}
@@ -226,6 +239,7 @@ export default function ClientesPage() {
         {loading ? (
           <LoadingScreen message="Carregando clientes..." />
         ) : (
+          <>
           <div className="overflow-hidden rounded-[8px] border border-[#E0E3E7] bg-white">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-[#E0E3E7]">
@@ -270,7 +284,7 @@ export default function ClientesPage() {
                         <td className={tableCellMuted}>
                           <div className="flex flex-col gap-0.5">
                             {(c.phone ?? c.mobile) && (
-                              <span>{c.phone ?? c.mobile}</span>
+                              <span>{formatPhone(c.phone ?? c.mobile)}</span>
                             )}
                             {c.email && (
                               <span>{c.email}</span>
@@ -303,7 +317,7 @@ export default function ClientesPage() {
                             </Link>
                             <button
                               type="button"
-                              onClick={() => handleDelete(c)}
+                              onClick={() => handleDeleteClick(c)}
                               disabled={deletingId === c.id}
                               className="rounded p-1.5 text-red-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                               title="Excluir"
@@ -319,6 +333,20 @@ export default function ClientesPage() {
               </table>
             </div>
           </div>
+          <TablePagination
+            from={from}
+            to={to}
+            total={total}
+            page={page}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            onPageSizeChange={setPageSize}
+            onPrevious={() => setPage((p) => Math.max(1, p - 1))}
+            onNext={() => setPage((p) => Math.min(totalPages, p + 1))}
+            selectId="clientes-page-size"
+          />
+          </>
         )}
 
       <PopupDetalhesCliente
@@ -326,6 +354,23 @@ export default function ClientesPage() {
         onClose={() => { setDetailOpen(false); setDetailCustomer(null) }}
         customer={detailCustomer}
       />
+
+      <ConfirmModal
+        open={customerToDelete !== null}
+        onClose={() => setCustomerToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="Excluir cliente"
+        confirmLabel="Excluir"
+        variant="danger"
+        loading={deletingId === customerToDelete?.id}
+      >
+        {customerToDelete && (
+          <>
+            Excluir <strong>{customerToDelete.full_name ?? customerToDelete.legal_name ?? customerToDelete.trade_name ?? 'este cliente'}</strong>?
+            Esta ação marca o cliente como excluído. Ele deixará de aparecer na listagem e não será considerado em relatórios.
+          </>
+        )}
+      </ConfirmModal>
     </div>
   )
 }

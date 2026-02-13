@@ -81,7 +81,15 @@ export type ContractWithRelations = Contract & {
     cnpj: string | null
     person_type?: string
   } | null
-  guarantor?: { id: string; full_name: string | null; cpf: string | null; cnpj: string | null } | null
+  guarantor?: {
+    id: string
+    full_name: string | null
+    legal_name: string | null
+    trade_name: string | null
+    cpf: string | null
+    cnpj: string | null
+    person_type?: string
+  } | null
   status?: { id: number; name: string } | null
   category?: { id: number; name: string } | null
   contract_type?: { id: number; name: string } | null

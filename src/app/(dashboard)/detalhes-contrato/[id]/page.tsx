@@ -88,6 +88,15 @@ function formatDate(value: string | null) {
   return new Date(value + 'T00:00:00').toLocaleDateString('pt-BR')
 }
 
+/** Nome para exibição: PF usa full_name; PJ usa trade_name ou legal_name. Se vazio, fallback para CPF/CNPJ. */
+function getCustomerDisplayName(customer: ContractWithRelations['customer'] | ContractWithRelations['guarantor']): string {
+  if (!customer) return '—'
+  const name = [customer.full_name, customer.trade_name, customer.legal_name].find((s) => s != null && String(s).trim() !== '')
+  if (name?.trim()) return String(name).trim()
+  const doc = formatCPFOrCNPJ(customer.cpf ?? null, customer.cnpj ?? null)
+  return doc !== '—' ? doc : '—'
+}
+
 export default function DetalhesContratoPage() {
   const params = useParams()
   const router = useRouter()
@@ -233,7 +242,7 @@ export default function DetalhesContratoPage() {
             </span>
           </div>
           <p className={pageSubtitle + ' mt-1'}>
-            {contract.customer?.full_name ?? '—'}
+            {getCustomerDisplayName(contract.customer ?? null)}
             {contract.customer?.cpf || contract.customer?.cnpj
               ? ` — ${formatCPFOrCNPJ(contract.customer.cpf ?? null, contract.customer.cnpj ?? null)}`
               : ''}
@@ -342,14 +351,15 @@ export default function DetalhesContratoPage() {
           Dados do contrato
         </h2>
         <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
-          <InfoItem label="Cliente" value={contract.customer?.full_name ?? '—'} />
+          <InfoItem label="Cliente" value={getCustomerDisplayName(contract.customer ?? null)} />
           <InfoItem label="CPF/CNPJ" value={formatCPFOrCNPJ(contract.customer?.cpf ?? null, contract.customer?.cnpj ?? null)} />
-          <InfoItem label="Fiador" value={contract.guarantor?.full_name ?? 'Sem fiador'} />
+          <InfoItem label="Fiador" value={contract.guarantor ? getCustomerDisplayName(contract.guarantor) : 'Sem fiador'} />
           <InfoItem label="Valor do contrato" value={formatCurrency(contract.contract_amount)} highlight />
           <InfoItem label="Parcelas" value={`${contract.installments_count}x de ${formatCurrency(contract.installment_amount)}`} />
-          <InfoItem label="Taxa de juros" value={contract.interest_rate ? `${String(contract.interest_rate).replace('.', ',')}% a.m.` : '—'} />
-          <InfoItem label="Taxa administrativa" value={contract.admin_fee_rate ? formatCurrency(contract.admin_fee_rate) : '—'} />
-          <InfoItem label="Tipo" value={CATEGORY_LABELS[contract.contract_category_id] ?? '—'} />
+          <InfoItem label="Taxa de juros" value={contract.interest_rate != null ? `${String(contract.interest_rate).replace('.', ',')}% a.m.` : '—'} />
+          <InfoItem label="Taxa administrativa" value={contract.admin_fee_rate != null ? `${String(contract.admin_fee_rate).replace('.', ',')}%` : '—'} />
+          <InfoItem label="Categoria" value={CATEGORY_LABELS[contract.contract_category_id] ?? contract.category?.name ?? '—'} />
+          <InfoItem label="Tipo de contrato" value={contract.contract_type?.name ?? '—'} />
           <InfoItem label="Banco" value={contract.bank ?? '—'} />
           <InfoItem label="Data de inclusão" value={formatDate(contract.inclusion_date)} />
           <InfoItem label="1º Vencimento" value={formatDate(contract.first_due_date)} />

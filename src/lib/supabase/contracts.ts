@@ -43,7 +43,8 @@ export async function getContractById(
     .from('contracts')
     .select(`
       *,
-      customer:customers ( id, full_name, legal_name, trade_name, cpf, cnpj, person_type ),
+      customer:customers!customer_id ( id, full_name, legal_name, trade_name, cpf, cnpj, person_type ),
+      guarantor:customers!guarantor_customer_id ( id, full_name, legal_name, trade_name, cpf, cnpj, person_type ),
       contract_statuses ( id, name ),
       contract_categories ( id, name ),
       contract_types ( id, name )
@@ -60,6 +61,7 @@ export async function getContractById(
   return {
     ...(raw as unknown as Contract),
     customer: (raw.customer ?? raw.customers) as ContractWithRelations['customer'],
+    guarantor: raw.guarantor as ContractWithRelations['guarantor'],
     status: raw.contract_statuses as ContractWithRelations['status'],
     category: raw.contract_categories as ContractWithRelations['category'],
     contract_type: raw.contract_types as ContractWithRelations['contract_type'],

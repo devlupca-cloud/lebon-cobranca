@@ -417,67 +417,97 @@ export default function ContratosPage() {
 
           {/* Desktop: tabela — scroll horizontal quando necessário para manter botões visíveis */}
           <div className="hidden min-h-0 flex-1 overflow-x-auto overflow-y-auto md:block">
-            <div className="min-w-[800px] rounded-[8px] border border-[#E0E3E7] bg-white shadow-sm">
-              <table className="min-w-full divide-y divide-[#E0E3E7]">
+            <div className="min-w-[800px] overflow-hidden rounded-[8px] border border-[#E0E3E7] bg-white shadow-sm">
+              <table className="min-w-full border-collapse">
                 <thead>
-                  <tr>
-                    <th className={tableHead + ' rounded-tl-[8px]'}>N° Contrato</th>
-                    <th className={tableHead}>Cliente</th>
-                    <th className={tableHead}>CPF/CNPJ</th>
-                    <th className={tableHead}>Valor Empréstimo</th>
-                    <th className={tableHead}>Parcelas</th>
-                    <th className={tableHead}>Valor Parcela</th>
-                    <th className={tableHead}>Vencimento</th>
-                    <th className={tableHead}>Status</th>
-                    <th className={tableHead + ' sticky right-0 z-10 rounded-tr-[8px] bg-white text-right shadow-[_-4px_0_8px_-4px_rgba(0,0,0,0.08)]'}>Ações</th>
+                  <tr className="border-b border-[#E0E3E7] bg-[#f1f4f8]">
+                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-[#57636C] rounded-tl-[8px]">
+                      N° Contrato
+                    </th>
+                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-[#57636C]">
+                      Cliente
+                    </th>
+                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-[#57636C]">
+                      CPF/CNPJ
+                    </th>
+                    <th className="px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-[#57636C]">
+                      Valor Empréstimo
+                    </th>
+                    <th className="px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-[#57636C]">
+                      Parcelas
+                    </th>
+                    <th className="px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-[#57636C]">
+                      Valor Parcela
+                    </th>
+                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-[#57636C]">
+                      Vencimento
+                    </th>
+                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-[#57636C]">
+                      Status
+                    </th>
+                    <th className="bg-[#f1f4f8] px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-[#57636C] rounded-tr-[8px]">
+                      Ações
+                    </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#E0E3E7] bg-white">
+                <tbody>
                   {contracts.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-4 py-8 text-center text-sm text-[#57636C]">
+                      <td colSpan={9} className="px-4 py-12 text-center text-sm text-[#57636C]">
                         Nenhum contrato encontrado.
                       </td>
                     </tr>
                   ) : (
-                    contracts.map((c) => {
+                    contracts.map((c, index) => {
                       const statusId = c.status?.id ?? 0
                       const statusLabel = c.status ? (STATUS_LABELS[statusId] ?? c.status.name) : '—'
                       const statusClass = STATUS_BADGE_CLASS[statusId] ?? 'bg-[#E0E3E7] text-[#14181B]'
+                      const isEven = index % 2 === 0
                       return (
-                        <tr key={c.id} className="hover:bg-[#f1f4f8]/50">
-                          <td className={tableCell + ' font-medium'}>
+                        <tr
+                          key={c.id}
+                          className={
+                            'border-b border-[#E0E3E7] transition-colors ' +
+                            (isEven ? 'bg-white' : 'bg-[#f8f9fb]') +
+                            ' hover:bg-[#eef1f5]'
+                          }
+                        >
+                          <td className="px-4 py-3.5 text-sm font-medium text-[#14181B]">
                             {c.contract_number ?? c.id.slice(0, 8)}
                           </td>
-                          <td className={tableCell}>
+                          <td className="px-4 py-3.5 text-sm text-[#14181B]">
                             {getCustomerDisplayName(c.customer)}
                           </td>
-                          <td className={tableCellMuted}>
+                          <td className="px-4 py-3.5 text-sm text-[#57636C] tabular-nums">
                             {formatCPFOrCNPJ(c.customer?.cpf ?? null, c.customer?.cnpj ?? null)}
                           </td>
-                          <td className={tableCell}>
-                            <span className="text-[#1E3A8A] font-medium">
-                              {formatCurrency(c.contract_amount)}
-                            </span>
+                          <td className="px-4 py-3.5 text-right text-sm font-medium text-[#1E3A8A] tabular-nums">
+                            {formatCurrency(c.contract_amount)}
                           </td>
-                          <td className={tableCell}>{c.installments_count}x</td>
-                          <td className={tableCell}>{formatCurrency(c.installment_amount)}</td>
-                          <td className={tableCellMuted}>{formatVencimento(c.first_due_date)}</td>
-                          <td className={tableCell}>
+                          <td className="px-4 py-3.5 text-right text-sm text-[#14181B] tabular-nums">
+                            {c.installments_count}x
+                          </td>
+                          <td className="px-4 py-3.5 text-right text-sm text-[#14181B] tabular-nums">
+                            {formatCurrency(c.installment_amount)}
+                          </td>
+                          <td className="px-4 py-3.5 text-sm text-[#57636C]">
+                            {formatVencimento(c.first_due_date)}
+                          </td>
+                          <td className="px-4 py-3.5">
                             <span
                               className={
-                                'inline-flex rounded-[8px] px-2.5 py-0.5 text-xs font-medium ' + statusClass
+                                'inline-flex rounded-[8px] px-2.5 py-1 text-xs font-medium ' + statusClass
                               }
                             >
                               {statusLabel}
                             </span>
                           </td>
-                          <td className="sticky right-0 z-10 whitespace-nowrap bg-white px-4 py-3 text-right shadow-[_-4px_0_8px_-4px_rgba(0,0,0,0.08)]">
-                            <span className="flex justify-end gap-1">
+                          <td className="bg-inherit px-4 py-3.5 text-right">
+                            <span className="inline-flex items-center justify-end gap-0.5">
                               <span className="relative group">
                                 <Link
                                   href={`/detalhes-contrato/${c.id}`}
-                                  className="rounded p-1.5 text-[#1E3A8A] hover:bg-[#1E3A8A]/10 inline-flex"
+                                  className="inline-flex rounded-[8px] p-2 text-[#1E3A8A] transition-colors hover:bg-[#1E3A8A]/10"
                                   title="Ver detalhes"
                                   aria-label="Ver detalhes do contrato"
                                 >
@@ -490,7 +520,7 @@ export default function ContratosPage() {
                               <span className="relative group">
                                 <Link
                                   href={`/editar-contrato/${c.id}`}
-                                  className="rounded p-1.5 text-[#1E3A8A] hover:bg-[#1E3A8A]/10 inline-flex"
+                                  className="inline-flex rounded-[8px] p-2 text-[#1E3A8A] transition-colors hover:bg-[#1E3A8A]/10"
                                   title="Editar contrato"
                                   aria-label="Editar contrato"
                                 >
@@ -507,7 +537,7 @@ export default function ContratosPage() {
                                     setSelectedContractId(c.id)
                                     setPdfOpen(true)
                                   }}
-                                  className="rounded p-1.5 text-[#1E3A8A] hover:bg-[#1E3A8A]/10"
+                                  className="rounded-[8px] p-2 text-[#1E3A8A] transition-colors hover:bg-[#1E3A8A]/10"
                                   title="Gerar PDF do contrato"
                                   aria-label="Gerar PDF do contrato"
                                 >
@@ -524,7 +554,7 @@ export default function ContratosPage() {
                                     setSelectedContractId(c.id)
                                     setQuitacaoOpen(true)
                                   }}
-                                  className="rounded p-1.5 text-[#1E3A8A] hover:bg-[#1E3A8A]/10"
+                                  className="rounded-[8px] p-2 text-[#1E3A8A] transition-colors hover:bg-[#1E3A8A]/10"
                                   title="Quitação e pagamentos"
                                   aria-label="Quitação e pagamentos"
                                 >

@@ -124,7 +124,7 @@ export default function BaseDeCalculoPage() {
         interest_rate: parseCurrency(taxaJuros) ?? null,
         first_due_date: primeiroVencimento.trim() || null,
         total_amount: total,
-        installment_amount: valorParcelaN ?? total / parcelasN,
+        installment_amount: valorParcelaN ?? (total ?? amount) / parcelasN,
         bank: banco.trim() || null,
         contract_category_id: CONTRACT_CATEGORY.LOAN,
         contract_type_id: CONTRACT_TYPE.PRICE,

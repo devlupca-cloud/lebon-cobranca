@@ -449,7 +449,7 @@ export function PopupQuitacao({
                           <td colSpan={7} className="bg-[#f1f4f8] px-3 py-3 align-top">
                             <PaymentHistory
                               installmentId={inst.id}
-                              onRevert={setPaymentToRevertId}
+                              onRevert={async (paymentId) => { setPaymentToRevertId(paymentId) }}
                               onClose={() => setExpandedInstallmentId(null)}
                               reverting={submitting}
                             />

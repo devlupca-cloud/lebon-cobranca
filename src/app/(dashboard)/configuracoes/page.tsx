@@ -81,7 +81,9 @@ export default function ConfiguracoesPage() {
   if (companyError || !companyId) {
     return (
       <div className="p-6">
-        <p className="text-sm text-[#ff5963]">{companyError ?? 'Empresa não encontrada.'}</p>
+        <p className="text-sm text-[#ff5963]">
+          {companyError instanceof Error ? companyError.message : (companyError ?? 'Empresa não encontrada.')}
+        </p>
       </div>
     )
   }

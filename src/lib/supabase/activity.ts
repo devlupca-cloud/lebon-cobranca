@@ -86,7 +86,7 @@ export async function getRecentActivity(companyId: string): Promise<ActivityItem
 
   if (error) throw error
 
-  const paymentRows = (payments ?? []) as Array<{
+  type PaymentRow = {
     id: string
     paid_amount: number
     paid_at: string
@@ -99,7 +99,8 @@ export async function getRecentActivity(companyId: string): Promise<ActivityItem
         customers: { full_name: string | null; legal_name: string | null } | null
       } | null
     } | null
-  }>
+  }
+  const paymentRows = (payments ?? []) as unknown as Array<PaymentRow>
 
   for (const p of paymentRows) {
     const rawInst = p.contract_installments

@@ -42,7 +42,9 @@
   --radius-lg: 8px;
   --radius-xl: 8px;
 
-  /* --- Tipografia --- */
+  /* --- Tipografia (Inter e Inter Tight carregados via link no layout; sem next/font para build no Vercel) --- */
+  --font-inter: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-inter-tight: "Inter Tight", ui-sans-serif, system-ui, sans-serif;
   --text-sm: 0.875rem;
   --text-base: 1rem;
   --font-sans: var(--font-inter);

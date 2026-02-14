@@ -121,7 +121,7 @@ export default function FinanciamentoPage() {
         interest_rate: parseCurrency(taxaPercent) ?? null,
         first_due_date: primeiroVencimento.trim() || null,
         total_amount: total,
-        installment_amount: valorParcelaN ?? total / parcelasN,
+        installment_amount: valorParcelaN ?? (total ?? amount) / parcelasN,
         residual_amount: parseCurrency(residuo) ?? null,
         total_installments: parcelasN,
         bank: banco.trim() || null,

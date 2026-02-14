@@ -117,6 +117,7 @@ Se der erro de policy já existente, ignore; significa que já está configurado
      - Reinicie o servidor (`npm run dev`) após alterar as variáveis.
    - **Se aparecer 403 "new row violates row-level security":**
      - O bucket existe mas faltam políticas de Storage. No Supabase: **SQL Editor** → rode o conteúdo da migration `supabase/migrations/20250212000004_storage_rls_file_and_photo_user.sql` (políticas de INSERT/SELECT/DELETE para os buckets `file` e `photo_user`). Ou crie manualmente em **Storage → Policies** para o bucket: permitir INSERT, SELECT e DELETE para usuários autenticados.
+   - **Foto do perfil não carrega (ícone quebrado ou só iniciais):** o app usa `getPublicUrl()`. Essa URL só funciona no navegador se o bucket **photo_user** for **público**. No Supabase: **Storage** → bucket **photo_user** → **Settings** → marque **Public bucket**. Para conferir no banco: `SELECT id, name, photo_user FROM company_users WHERE is_active = true;` — se `photo_user` estiver NULL, o update após o upload não está passando (conferir RLS).
 
 3. **RPCs opcionais (performance)**
    - Se as telas de fluxo de caixa ou resumo financeiro ficarem lentas, dá para criar funções SQL `get_cash_flow` e `get_financial_summary` no Supabase e chamar via RPC em vez de buscar muitos dados no client.

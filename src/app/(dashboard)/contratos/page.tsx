@@ -415,156 +415,98 @@ export default function ContratosPage() {
             </div>
           </div>
 
-          {/* Desktop: tabela — scroll horizontal quando necessário para manter botões visíveis */}
-          <div className="hidden min-h-0 flex-1 overflow-x-auto overflow-y-auto md:block">
-            <div className="min-w-[800px] overflow-hidden rounded-[8px] border border-[#E0E3E7] bg-white shadow-sm">
-              <table className="min-w-full border-collapse">
+          {/* Desktop: tabela simplificada */}
+          <div className="hidden min-h-0 flex-1 overflow-auto md:block">
+            <div className="overflow-hidden rounded-[8px] border border-[#E0E3E7] bg-white shadow-sm">
+              <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-b border-[#E0E3E7] bg-[#f1f4f8]">
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-[#57636C] rounded-tl-[8px]">
-                      N° Contrato
-                    </th>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-[#57636C]">
-                      Cliente
-                    </th>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-[#57636C]">
-                      CPF/CNPJ
-                    </th>
-                    <th className="px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-[#57636C]">
-                      Valor Empréstimo
-                    </th>
-                    <th className="px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-[#57636C]">
-                      Parcelas
-                    </th>
-                    <th className="px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-[#57636C]">
-                      Valor Parcela
-                    </th>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-[#57636C]">
-                      Vencimento
-                    </th>
-                    <th className="px-4 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-[#57636C]">
-                      Status
-                    </th>
-                    <th className="bg-[#f1f4f8] px-4 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-[#57636C] rounded-tr-[8px]">
-                      Ações
-                    </th>
+                    <th className={tableHead + ' rounded-tl-[8px]'}>N° Contrato</th>
+                    <th className={tableHead}>Cliente</th>
+                    <th className={tableHead}>Valor / Parcelas</th>
+                    <th className={tableHead}>Vencimento</th>
+                    <th className={tableHead}>Status</th>
+                    <th className={tableHead + ' rounded-tr-[8px] text-right'}>Ações</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-[#E0E3E7]">
                   {contracts.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-4 py-12 text-center text-sm text-[#57636C]">
+                      <td colSpan={6} className="px-4 py-12 text-center text-sm text-[#57636C]">
                         Nenhum contrato encontrado.
                       </td>
                     </tr>
                   ) : (
-                    contracts.map((c, index) => {
+                    contracts.map((c) => {
                       const statusId = c.status?.id ?? 0
                       const statusLabel = c.status ? (STATUS_LABELS[statusId] ?? c.status.name) : '—'
                       const statusClass = STATUS_BADGE_CLASS[statusId] ?? 'bg-[#E0E3E7] text-[#14181B]'
-                      const isEven = index % 2 === 0
                       return (
-                        <tr
-                          key={c.id}
-                          className={
-                            'border-b border-[#E0E3E7] transition-colors ' +
-                            (isEven ? 'bg-white' : 'bg-[#f8f9fb]') +
-                            ' hover:bg-[#eef1f5]'
-                          }
-                        >
-                          <td className="px-4 py-3.5 text-sm font-medium text-[#14181B]">
+                        <tr key={c.id} className="hover:bg-[#f1f4f8]/50 transition-colors">
+                          <td className={tableCell + ' font-medium'}>
                             {c.contract_number ?? c.id.slice(0, 8)}
                           </td>
-                          <td className="px-4 py-3.5 text-sm text-[#14181B]">
-                            {getCustomerDisplayName(c.customer)}
+                          <td className={tableCell}>
+                            <div>
+                              <p className="font-medium text-[#14181B]">
+                                {getCustomerDisplayName(c.customer)}
+                              </p>
+                              <p className="text-xs text-[#57636C]">
+                                {formatCPFOrCNPJ(c.customer?.cpf ?? null, c.customer?.cnpj ?? null)}
+                              </p>
+                            </div>
                           </td>
-                          <td className="px-4 py-3.5 text-sm text-[#57636C] tabular-nums">
-                            {formatCPFOrCNPJ(c.customer?.cpf ?? null, c.customer?.cnpj ?? null)}
+                          <td className={tableCell}>
+                            <div className="text-right">
+                              <p className="font-medium text-[#1E3A8A]">
+                                {formatCurrency(c.contract_amount)}
+                              </p>
+                              <p className="text-xs text-[#57636C]">
+                                {c.installments_count}x {formatCurrency(c.installment_amount)}
+                              </p>
+                            </div>
                           </td>
-                          <td className="px-4 py-3.5 text-right text-sm font-medium text-[#1E3A8A] tabular-nums">
-                            {formatCurrency(c.contract_amount)}
-                          </td>
-                          <td className="px-4 py-3.5 text-right text-sm text-[#14181B] tabular-nums">
-                            {c.installments_count}x
-                          </td>
-                          <td className="px-4 py-3.5 text-right text-sm text-[#14181B] tabular-nums">
-                            {formatCurrency(c.installment_amount)}
-                          </td>
-                          <td className="px-4 py-3.5 text-sm text-[#57636C]">
+                          <td className={tableCellMuted}>
                             {formatVencimento(c.first_due_date)}
                           </td>
-                          <td className="px-4 py-3.5">
-                            <span
-                              className={
-                                'inline-flex rounded-[8px] px-2.5 py-1 text-xs font-medium ' + statusClass
-                              }
-                            >
+                          <td className={tableCell}>
+                            <span className={'inline-flex rounded-[8px] px-2.5 py-0.5 text-xs font-medium ' + statusClass}>
                               {statusLabel}
                             </span>
                           </td>
-                          <td className="bg-inherit px-4 py-3.5 text-right">
-                            <span className="inline-flex items-center justify-end gap-0.5">
-                              <span className="relative group">
-                                <Link
-                                  href={`/detalhes-contrato/${c.id}`}
-                                  className="inline-flex rounded-[8px] p-2 text-[#1E3A8A] transition-colors hover:bg-[#1E3A8A]/10"
-                                  title="Ver detalhes"
-                                  aria-label="Ver detalhes do contrato"
-                                >
-                                  <MdVisibility className="h-5 w-5" />
-                                </Link>
-                                <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-[8px] border border-[#E0E3E7] bg-white px-2.5 py-1.5 text-xs text-[#57636C] opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100">
-                                  Ver detalhes
-                                </span>
-                              </span>
-                              <span className="relative group">
-                                <Link
-                                  href={`/editar-contrato/${c.id}`}
-                                  className="inline-flex rounded-[8px] p-2 text-[#1E3A8A] transition-colors hover:bg-[#1E3A8A]/10"
-                                  title="Editar contrato"
-                                  aria-label="Editar contrato"
-                                >
-                                  <MdEdit className="h-5 w-5" />
-                                </Link>
-                                <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-[8px] border border-[#E0E3E7] bg-white px-2.5 py-1.5 text-xs text-[#57636C] opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100">
-                                  Editar contrato
-                                </span>
-                              </span>
-                              <span className="relative group">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedContractId(c.id)
-                                    setPdfOpen(true)
-                                  }}
-                                  className="rounded-[8px] p-2 text-[#1E3A8A] transition-colors hover:bg-[#1E3A8A]/10"
-                                  title="Gerar PDF do contrato"
-                                  aria-label="Gerar PDF do contrato"
-                                >
-                                  <MdDescription className="h-5 w-5" />
-                                </button>
-                                <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-[8px] border border-[#E0E3E7] bg-white px-2.5 py-1.5 text-xs text-[#57636C] opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100">
-                                  Gerar PDF do contrato
-                                </span>
-                              </span>
-                              <span className="relative group">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedContractId(c.id)
-                                    setQuitacaoOpen(true)
-                                  }}
-                                  className="rounded-[8px] p-2 text-[#1E3A8A] transition-colors hover:bg-[#1E3A8A]/10"
-                                  title="Quitação e pagamentos"
-                                  aria-label="Quitação e pagamentos"
-                                >
-                                  <MdReceipt className="h-5 w-5" />
-                                </button>
-                                <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1.5 -translate-x-1/2 whitespace-nowrap rounded-[8px] border border-[#E0E3E7] bg-white px-2.5 py-1.5 text-xs text-[#57636C] opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100">
-                                  Quitação e pagamentos
-                                </span>
-                              </span>
-                            </span>
+                          <td className={tableCell + ' text-right'}>
+                            <div className="inline-flex items-center gap-1">
+                              <Link
+                                href={`/detalhes-contrato/${c.id}`}
+                                className="rounded-[8px] p-2 text-[#1E3A8A] transition-colors hover:bg-[#1E3A8A]/10"
+                                title="Ver detalhes"
+                              >
+                                <MdVisibility className="h-5 w-5" />
+                              </Link>
+                              <Link
+                                href={`/editar-contrato/${c.id}`}
+                                className="rounded-[8px] p-2 text-[#1E3A8A] transition-colors hover:bg-[#1E3A8A]/10"
+                                title="Editar"
+                              >
+                                <MdEdit className="h-5 w-5" />
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={() => { setSelectedContractId(c.id); setPdfOpen(true) }}
+                                className="rounded-[8px] p-2 text-[#1E3A8A] transition-colors hover:bg-[#1E3A8A]/10"
+                                title="Gerar PDF"
+                              >
+                                <MdDescription className="h-5 w-5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setSelectedContractId(c.id); setQuitacaoOpen(true) }}
+                                className="rounded-[8px] p-2 text-[#1E3A8A] transition-colors hover:bg-[#1E3A8A]/10"
+                                title="Quitação"
+                              >
+                                <MdReceipt className="h-5 w-5" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       )

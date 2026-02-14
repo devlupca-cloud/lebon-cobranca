@@ -224,7 +224,7 @@ export default function EmprestimosPage() {
           </Link>
           <Button
             type="button"
-            onClick={() => (window.location.href = '/extrato-fianceiro')}
+            onClick={() => (window.location.href = '/extrato-financeiro')}
             className={buttonSecondary}
           >
             Extrato

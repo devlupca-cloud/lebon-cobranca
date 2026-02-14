@@ -1,5 +1,12 @@
 import { createClient } from '@/lib/supabase/client'
 
+/**
+ * IMPORTANTE – E-mail do usuário logado:
+ * O e-mail da sessão vem do Auth (Supabase Auth), não da tabela company_users.
+ * Se implementar edição de e-mail no perfil, é obrigatório atualizar o Auth primeiro
+ * (ex.: supabase.auth.updateUser({ email: newEmail })), e depois sincronizar
+ * company_users se a aplicação usar esse campo como cópia.
+ */
 export type Profile = {
   company_id: string
   name: string | null
@@ -95,17 +102,24 @@ export async function updateProfilePhoto(photoUrl: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user?.id) throw new Error('Usuário não autenticado')
 
-  const { error: errId } = await supabase
+  // Tenta atualizar por id; usa .select() para verificar se alguma linha foi afetada
+  const { data: byId, error: errId } = await supabase
     .from('company_users')
     .update({ photo_user: photoUrl })
     .eq('id', user.id)
+    .select('id')
 
-  if (!errId) return
+  if (!errId && byId && byId.length > 0) return
 
-  const { error: errUser } = await supabase
+  // Fallback: tenta por user_id
+  const { data: byUserId, error: errUser } = await supabase
     .from('company_users')
     .update({ photo_user: photoUrl })
     .eq('user_id', user.id)
+    .select('id')
 
   if (errUser) throw errUser
+  if (!byUserId || byUserId.length === 0) {
+    throw new Error('Não foi possível atualizar a foto. Registro não encontrado.')
+  }
 }

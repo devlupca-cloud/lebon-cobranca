@@ -75,6 +75,7 @@ export type GetContractsParams = {
   customerId?: string | null
   statusId?: number | null
   contractNumber?: string | null
+  customerName?: string | null
   startDate?: string | null
   endDate?: string | null
 }
@@ -105,6 +106,12 @@ export async function getContractsFiltered(
   }
   if (params.contractNumber) {
     query = query.ilike('contract_number', `%${params.contractNumber}%`)
+  }
+  if (params.customerName) {
+    query = query.or(
+      `full_name.ilike.%${params.customerName}%,legal_name.ilike.%${params.customerName}%`,
+      { referencedTable: 'customers' }
+    )
   }
   if (params.startDate) {
     query = query.gte('inclusion_date', params.startDate)

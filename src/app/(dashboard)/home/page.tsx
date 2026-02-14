@@ -221,7 +221,7 @@ export default function HomePage() {
                 Novo Cliente
               </Link>
               <Link
-                href="/extrato-fianceiro"
+                href="/extrato-financeiro"
                 prefetch={false}
                 className="flex items-center justify-center gap-2 rounded-[8px] bg-[#1E3A8A] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#1e40af]"
               >

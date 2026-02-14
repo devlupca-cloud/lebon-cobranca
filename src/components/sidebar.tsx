@@ -27,7 +27,7 @@ const SIDEBAR_LINKS = [
   { href: '/gerardocumentosnovo', label: 'Gerar Documentos', icon: MdEditDocument },
   { href: '/simulacao', label: 'Simulação', icon: MdSwapVert },
   { href: '/fluxo-caixa', label: 'Contas a pagar', icon: MdGridOn },
-  { href: '/extrato-fianceiro', label: 'Extrato Financeiro', icon: MdLineAxis },
+  { href: '/extrato-financeiro', label: 'Extrato Financeiro', icon: MdLineAxis },
   { href: '/cadastrar-acesso', label: 'Cadastrar Acesso', icon: MdGroups },
   { href: '/profile06', label: 'Perfil', icon: MdAccountCircle },
 ] as const

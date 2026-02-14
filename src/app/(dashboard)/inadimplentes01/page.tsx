@@ -89,7 +89,7 @@ function groupRowsByContract(rows: OverdueInstallmentRow[]): ContractOverdueCard
 
   for (const row of rows) {
     const contract = row.contracts ?? row.contract
-    const customer = contract?.customers
+    const customer = contract?.customer ?? contract?.customers
     const name = customer?.full_name ?? customer?.legal_name ?? '—'
     const existing = byContract.get(row.contract_id)
     if (!existing) {

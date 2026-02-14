@@ -14,7 +14,7 @@ async function getContractIdsWithActiveCustomer(
     .select('id, customer:customers!inner(id)')
     .eq('company_id', companyId)
     .is('deleted_at', null)
-    .is('customers.deleted_at', null)
+    .is('customer.deleted_at', null)
   if (error) return []
   return (data ?? []).map((r) => r.id as string)
 }
@@ -146,28 +146,28 @@ async function getDashboardStatsLegacy(
       .eq('company_id', companyId)
       .eq('status_id', CONTRACT_STATUS.ACTIVE)
       .is('deleted_at', null)
-      .is('customers.deleted_at', null),
+      .is('customer.deleted_at', null),
     supabase
       .from('contracts')
       .select('id, customer:customers!inner(id)', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .eq('status_id', CONTRACT_STATUS.ACTIVE)
       .is('deleted_at', null)
-      .is('customers.deleted_at', null)
+      .is('customer.deleted_at', null)
       .lt('created_at', thisMonthStart),
     supabase
       .from('contracts')
       .select('id, customer:customers!inner(id)', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .is('deleted_at', null)
-      .is('customers.deleted_at', null)
+      .is('customer.deleted_at', null)
       .gte('created_at', thisMonthStart),
     supabase
       .from('contracts')
       .select('id, customer:customers!inner(id)', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .is('deleted_at', null)
-      .is('customers.deleted_at', null)
+      .is('customer.deleted_at', null)
       .gte('created_at', lastMonthStart)
       .lt('created_at', thisMonthStart),
   ])
@@ -209,7 +209,7 @@ async function getTotalReceivableForContractsCreatedBefore(
     .select('id, customer:customers!inner(id)')
     .eq('company_id', companyId)
     .is('deleted_at', null)
-    .is('customers.deleted_at', null)
+    .is('customer.deleted_at', null)
     .lt('created_at', beforeDate)
   if (e1 || !contractIds?.length) return 0
   const ids = contractIds.map((r) => r.id)
@@ -274,14 +274,14 @@ export async function getFinancialSummary(
       .eq('company_id', companyId)
       .eq('status_id', CONTRACT_STATUS.ACTIVE)
       .is('deleted_at', null)
-      .is('customers.deleted_at', null)
+      .is('customer.deleted_at', null)
     const { count: closedCount } = await supabase
       .from('contracts')
       .select('id, customer:customers!inner(id)', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .eq('status_id', CONTRACT_STATUS.CLOSED)
       .is('deleted_at', null)
-      .is('customers.deleted_at', null)
+      .is('customer.deleted_at', null)
     return {
       totalReceivable: 0,
       totalReceived: 0,
@@ -323,7 +323,7 @@ export async function getFinancialSummary(
     .eq('company_id', companyId)
     .eq('status_id', CONTRACT_STATUS.ACTIVE)
     .is('deleted_at', null)
-    .is('customers.deleted_at', null)
+    .is('customer.deleted_at', null)
 
   if (acErr) throw acErr
 
@@ -333,7 +333,7 @@ export async function getFinancialSummary(
     .eq('company_id', companyId)
     .eq('status_id', CONTRACT_STATUS.CLOSED)
     .is('deleted_at', null)
-    .is('customers.deleted_at', null)
+    .is('customer.deleted_at', null)
 
   if (ccErr) throw ccErr
 
@@ -474,7 +474,7 @@ export async function getExtratoFinanceiroData(
       .eq('company_id', companyId)
       .eq('status_id', CONTRACT_STATUS.ACTIVE)
       .is('deleted_at', null)
-      .is('customers.deleted_at', null),
+      .is('customer.deleted_at', null),
     // Total dos contratos ativos
     supabase
       .from('contracts')
@@ -482,7 +482,7 @@ export async function getExtratoFinanceiroData(
       .eq('company_id', companyId)
       .eq('status_id', CONTRACT_STATUS.ACTIVE)
       .is('deleted_at', null)
-      .is('customers.deleted_at', null),
+      .is('customer.deleted_at', null),
   ])
 
   // Saldo total recebido
@@ -583,7 +583,7 @@ export async function getRecentMovements(
           contract_id,
           contracts (
             contract_number,
-            customers ( full_name, legal_name )
+            customer:customers!customer_id ( full_name, legal_name )
           )
         )
       `)
@@ -607,7 +607,7 @@ export async function getRecentMovements(
         id, installment_number, due_date, amount, amount_paid, contract_id,
         contracts (
           contract_number,
-          customers ( full_name, legal_name )
+          customer:customers!customer_id ( full_name, legal_name )
         )
       `)
       .eq('company_id', companyId)
@@ -640,7 +640,7 @@ export async function getRecentMovements(
     const inst = Array.isArray(rawInst) ? rawInst[0] : rawInst
     const rawContract = inst?.contracts as Record<string, unknown> | Array<Record<string, unknown>> | null
     const contract = Array.isArray(rawContract) ? rawContract[0] : rawContract
-    const rawCustomer = contract?.customers as { full_name: string | null; legal_name: string | null } | Array<{ full_name: string | null; legal_name: string | null }> | null
+    const rawCustomer = contract?.customer ?? contract?.customers as { full_name: string | null; legal_name: string | null } | Array<{ full_name: string | null; legal_name: string | null }> | null
     const customer = Array.isArray(rawCustomer) ? rawCustomer[0] : rawCustomer
     const name = customer?.full_name || customer?.legal_name || 'Cliente'
     const contractNumber = (contract?.contract_number as string) || ''
@@ -670,7 +670,7 @@ export async function getRecentMovements(
   for (const i of (installments ?? []) as Array<Record<string, unknown>>) {
     const rawContract = i.contracts as Record<string, unknown> | Array<Record<string, unknown>> | null
     const contract = Array.isArray(rawContract) ? rawContract[0] : rawContract
-    const rawCustomer = contract?.customers as { full_name: string | null; legal_name: string | null } | Array<{ full_name: string | null; legal_name: string | null }> | null
+    const rawCustomer = contract?.customer ?? contract?.customers as { full_name: string | null; legal_name: string | null } | Array<{ full_name: string | null; legal_name: string | null }> | null
     const customer = Array.isArray(rawCustomer) ? rawCustomer[0] : rawCustomer
     const name = customer?.full_name || customer?.legal_name || 'Cliente'
     const contractNumber = (contract?.contract_number as string) || ''
@@ -825,10 +825,10 @@ export async function getRecentMovementsPaginated(
               contract_installments (
                 installment_number,
                 contract_id,
-                contracts (
-                  contract_number,
-                  customers ( full_name, legal_name )
-                )
+contracts (
+                contract_number,
+                customer:customers!customer_id ( full_name, legal_name )
+              )
               )
             `, { count: 'exact' })
             .eq('company_id', companyId)
@@ -863,7 +863,7 @@ export async function getRecentMovementsPaginated(
               id, installment_number, due_date, amount, amount_paid, contract_id,
               contracts (
                 contract_number,
-                customers ( full_name, legal_name )
+                customer:customers!customer_id ( full_name, legal_name )
               )
             `, { count: 'exact' })
             .eq('company_id', companyId)
@@ -886,13 +886,13 @@ export async function getRecentMovementsPaginated(
             `, { count: 'exact' })
             .eq('company_id', companyId)
             .is('deleted_at', null)
-            .is('customers.deleted_at', null)
+            .is('customer.deleted_at', null)
             .eq('status_id', CONTRACT_STATUS.ACTIVE)
           if (startDate) q = q.gte('created_at', startDate)
           if (endDate) q = q.lte('created_at', endDate)
           if (search && search.trim() !== '') {
             const searchTerm = `%${search.trim()}%`
-            q = q.or(`full_name.ilike.${searchTerm},legal_name.ilike.${searchTerm}`, { referencedTable: 'customers' })
+            q = q.or(`full_name.ilike.${searchTerm},legal_name.ilike.${searchTerm}`, { referencedTable: 'customer' })
           }
           return await q.order('created_at', { ascending: false }).limit(fetchSize)
         })()
@@ -909,7 +909,7 @@ export async function getRecentMovementsPaginated(
     const inst = Array.isArray(rawInst) ? rawInst[0] : rawInst
     const rawContract = inst?.contracts as Record<string, unknown> | Array<Record<string, unknown>> | null
     const contract = Array.isArray(rawContract) ? rawContract[0] : rawContract
-    const rawCustomer = contract?.customers as { full_name: string | null; legal_name: string | null } | Array<{ full_name: string | null; legal_name: string | null }> | null
+    const rawCustomer = contract?.customer ?? contract?.customers as { full_name: string | null; legal_name: string | null } | Array<{ full_name: string | null; legal_name: string | null }> | null
     const customer = Array.isArray(rawCustomer) ? rawCustomer[0] : rawCustomer
     const name = customer?.full_name || customer?.legal_name || 'Cliente'
     const contractNumber = (contract?.contract_number as string) || ''
@@ -937,7 +937,7 @@ export async function getRecentMovementsPaginated(
   for (const i of (installments ?? []) as Array<Record<string, unknown>>) {
     const rawContract = i.contracts as Record<string, unknown> | Array<Record<string, unknown>> | null
     const contract = Array.isArray(rawContract) ? rawContract[0] : rawContract
-    const rawCustomer = contract?.customers as { full_name: string | null; legal_name: string | null } | Array<{ full_name: string | null; legal_name: string | null }> | null
+    const rawCustomer = contract?.customer ?? contract?.customers as { full_name: string | null; legal_name: string | null } | Array<{ full_name: string | null; legal_name: string | null }> | null
     const customer = Array.isArray(rawCustomer) ? rawCustomer[0] : rawCustomer
     const name = customer?.full_name || customer?.legal_name || 'Cliente'
     const contractNumber = (contract?.contract_number as string) || ''

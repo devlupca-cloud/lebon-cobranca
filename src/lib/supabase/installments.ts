@@ -9,7 +9,16 @@ export type ContractRelation = {
   installment_amount: number | null
   installments_count?: number
   total_installments?: number | null
-  customers: {
+  /** Resposta da API com hint customer_id (alias: customer) */
+  customer?: {
+    full_name: string | null
+    legal_name: string | null
+    cpf: string | null
+    cnpj: string | null
+    person_type?: string
+  } | null
+  /** Nome antigo da relação (PostgREST sem hint) */
+  customers?: {
     full_name: string | null
     legal_name: string | null
     cpf: string | null
@@ -65,7 +74,7 @@ export async function getOverdueInstallments(
         installment_amount,
         installments_count,
         total_installments,
-        customers (
+        customer:customers!customer_id (
           full_name,
           legal_name,
           cpf,

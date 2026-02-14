@@ -47,7 +47,7 @@ export async function getRecentActivity(companyId: string): Promise<ActivityItem
   const overdueSlice = overdue.slice(0, MAX_OVERDUE)
   for (const row of overdueSlice) {
     const contract = row.contracts ?? row.contract
-    const customer = contract?.customers ?? null
+    const customer = contract?.customer ?? contract?.customers ?? null
     const name = customerDisplayName(customer)
     const contractId = row.contract_id
     items.push({
@@ -74,7 +74,7 @@ export async function getRecentActivity(companyId: string): Promise<ActivityItem
         contract_id,
         contracts (
           contract_number,
-          customers ( full_name, legal_name )
+          customer:customers!customer_id ( full_name, legal_name )
         )
       )
     `
@@ -107,7 +107,7 @@ export async function getRecentActivity(companyId: string): Promise<ActivityItem
     const inst = Array.isArray(rawInst) ? rawInst[0] : rawInst
     const rawContract = inst?.contracts
     const contract = Array.isArray(rawContract) ? rawContract[0] : rawContract ?? null
-    const rawCustomer = contract?.customers
+    const rawCustomer = contract?.customer ?? contract?.customers
     const customer = Array.isArray(rawCustomer) ? rawCustomer[0] : rawCustomer ?? null
     const name = customerDisplayName(customer)
     const contractId = inst?.contract_id ?? ''

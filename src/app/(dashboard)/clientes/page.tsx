@@ -278,7 +278,7 @@ export default function ClientesPage() {
                         </td>
                         <td className={tableCell}>
                           {c.person_type === 'juridica'
-                            ? (c.legal_name ?? c.trade_name ?? '—')
+                            ? (c.trade_name ?? c.legal_name ?? '—')
                             : (c.full_name ?? '—')}
                         </td>
                         <td className={tableCellMuted}>

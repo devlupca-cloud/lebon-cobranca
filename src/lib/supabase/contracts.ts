@@ -2,6 +2,12 @@ import { createClient } from '@/lib/supabase/client'
 import type { Contract, ContractInstallment, ContractWithRelations, GetContractsResponse } from '@/types/database'
 import { CONTRACT_STATUS, INSTALLMENT_STATUS, INSTALLMENT_ORIGIN } from '@/types/enums'
 
+/** PostgREST pode retornar relação como objeto ou array; normaliza para objeto ou null. */
+function normalizeRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (value == null) return null
+  return Array.isArray(value) ? (value[0] ?? null) : value
+}
+
 // ──────────────────────────── Queries ──────────────────────────────
 
 export async function getContracts(companyId: string): Promise<Contract[]> {
@@ -58,10 +64,12 @@ export async function getContractById(
   if (!data) return null
 
   const raw = data as Record<string, unknown>
+  const rawCustomer = raw.customer ?? raw.customers
+  const rawGuarantor = raw.guarantor
   return {
     ...(raw as unknown as Contract),
-    customer: (raw.customer ?? raw.customers) as ContractWithRelations['customer'],
-    guarantor: raw.guarantor as ContractWithRelations['guarantor'],
+    customer: normalizeRelation(rawCustomer) as ContractWithRelations['customer'],
+    guarantor: normalizeRelation(rawGuarantor) as ContractWithRelations['guarantor'],
     status: raw.contract_statuses as ContractWithRelations['status'],
     category: raw.contract_categories as ContractWithRelations['category'],
     contract_type: raw.contract_types as ContractWithRelations['contract_type'],
@@ -89,14 +97,14 @@ export async function getContractsFiltered(
     .from('contracts')
     .select(`
       *,
-      customer:customers!inner ( id, full_name, legal_name, trade_name, cpf, cnpj, person_type ),
+      customer:customers!customer_id!inner ( id, full_name, legal_name, trade_name, cpf, cnpj, person_type ),
       contract_statuses ( id, name ),
       contract_categories ( id, name ),
       contract_types ( id, name )
     `, { count: 'exact' })
     .eq('company_id', params.companyId)
     .is('deleted_at', null)
-    .is('customers.deleted_at', null)
+    .is('customer.deleted_at', null)
 
   if (params.customerId) {
     query = query.eq('customer_id', params.customerId)
@@ -110,7 +118,7 @@ export async function getContractsFiltered(
   if (params.customerName) {
     query = query.or(
       `full_name.ilike.%${params.customerName}%,legal_name.ilike.%${params.customerName}%`,
-      { referencedTable: 'customers' }
+      { referencedTable: 'customer' }
     )
   }
   if (params.startDate) {

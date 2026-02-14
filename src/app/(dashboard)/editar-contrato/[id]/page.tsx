@@ -31,18 +31,26 @@ const ACTIVE_DISABLED_FIELDS = new Set([
 function customerToAutocompleteItem(c: {
   id: string
   full_name: string | null
+  legal_name?: string | null
+  trade_name?: string | null
   cpf: string | null
   cnpj: string | null
-  person_type: string
+  person_type?: string
 }): CustomerAutocompleteItem {
+  const isPJ = c.person_type === 'juridica'
+  // Nome para exibição: PJ usa razão/nome fantasia; PF usa full_name. Sempre tenta qualquer campo preenchido.
+  const label =
+    (isPJ ? (c.legal_name ?? c.trade_name ?? c.full_name) : (c.full_name ?? c.legal_name ?? c.trade_name)) ??
+    ''
   return {
     id: c.id,
-    label: c.full_name ?? '—',
-    person_type: c.person_type,
-    full_name: c.full_name,
-    legal_name: null,
-    cpf: c.cpf,
-    cnpj: c.cnpj,
+    label: (typeof label === 'string' ? label.trim() : '') || '—',
+    person_type: c.person_type ?? (c.cnpj ? 'juridica' : 'fisica'),
+    full_name: c.full_name ?? null,
+    legal_name: c.trade_name ?? c.legal_name ?? null,
+    trade_name: c.trade_name ?? null,
+    cpf: c.cpf ?? null,
+    cnpj: c.cnpj ?? null,
   }
 }
 
@@ -105,24 +113,29 @@ export default function EditarContratoPage() {
         // Convert contract to form state
         setInitialData(contractToFormState(contract))
 
-        // Build customer autocomplete item from contract.customer
+        // Build customer autocomplete item from contract.customer (considera PF/PJ)
         if (contract.customer) {
+          const cust = contract.customer
           setInitialCustomer(customerToAutocompleteItem({
-            id: contract.customer.id,
-            full_name: contract.customer.full_name,
-            cpf: contract.customer.cpf,
-            cnpj: contract.customer.cnpj,
-            person_type: contract.customer.cpf ? 'fisica' : 'juridica',
+            id: cust.id,
+            full_name: cust.full_name ?? '',
+            legal_name: cust.legal_name ?? undefined,
+            trade_name: cust.trade_name ?? undefined,
+            cpf: cust.cpf,
+            cnpj: cust.cnpj,
+            person_type: cust.person_type ?? (cust.cnpj ? 'juridica' : 'fisica'),
           }))
         }
 
-        // Load guarantor if present
+        // Load guarantor if present (considera PF/PJ)
         if (contract.guarantor_customer_id) {
           const guarantor = await getCustomerById(contract.guarantor_customer_id)
           if (!cancelled && guarantor) {
             setInitialGuarantor(customerToAutocompleteItem({
               id: guarantor.id,
               full_name: guarantor.full_name,
+              legal_name: guarantor.legal_name,
+              trade_name: guarantor.trade_name,
               cpf: guarantor.cpf,
               cnpj: guarantor.cnpj,
               person_type: guarantor.person_type,

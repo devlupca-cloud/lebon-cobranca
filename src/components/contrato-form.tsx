@@ -14,6 +14,16 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { PopupSimulacao } from '@/components/popup-simulacao'
 import { MdDescription, MdSearch, MdSwapHoriz } from 'react-icons/md'
 
+/** Nome para exibição (PF: full_name; PJ: legal_name/trade_name); usa qualquer campo preenchido. */
+function getCustomerDisplayName(c: CustomerAutocompleteItem | null): string {
+  if (!c) return '—'
+  const name =
+    c.person_type === 'juridica'
+      ? (c.legal_name ?? c.trade_name ?? c.full_name ?? c.label)
+      : (c.full_name ?? c.legal_name ?? c.trade_name ?? c.label)
+  return (typeof name === 'string' ? name.trim() : '') || '—'
+}
+
 /** Tipo do contrato (dropdown "Escolha o Tipo" no FlutterFlow): Financiamento | Base de Cálculo */
 const TIPO_OPCOES = [
   { value: CONTRACT_CATEGORY.FINANCING, label: 'Financiamento' },
@@ -465,9 +475,7 @@ export function ContratoForm({
               <div className="flex items-stretch gap-3">
                 <div className="flex flex-1 flex-col justify-center rounded-[8px] border border-[#E0E3E7] bg-[#f1f4f8] px-4 py-3">
                   <span className="text-sm font-medium text-[#0f1419]">
-                    {selectedCustomer.person_type === 'juridica'
-                      ? (selectedCustomer.legal_name ?? selectedCustomer.label)
-                      : (selectedCustomer.full_name ?? selectedCustomer.label)}
+                    {getCustomerDisplayName(selectedCustomer)}
                   </span>
                   <span className="mt-0.5 text-xs text-[#57636C]">
                     {selectedCustomer.person_type === 'juridica'
@@ -563,9 +571,7 @@ export function ContratoForm({
               <div className="flex items-stretch gap-3">
                 <div className="flex flex-1 flex-col justify-center rounded-[8px] border border-[#E0E3E7] bg-[#f1f4f8] px-4 py-3">
                   <span className="text-sm font-medium text-[#0f1419]">
-                    {selectedGuarantor.person_type === 'juridica'
-                      ? (selectedGuarantor.legal_name ?? selectedGuarantor.label)
-                      : (selectedGuarantor.full_name ?? selectedGuarantor.label)}
+                    {getCustomerDisplayName(selectedGuarantor)}
                   </span>
                   <span className="mt-0.5 text-xs text-[#57636C]">
                     {selectedGuarantor.person_type === 'juridica'

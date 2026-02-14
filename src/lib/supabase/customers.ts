@@ -92,6 +92,7 @@ export type CustomerAutocompleteItem = {
   person_type: string
   full_name: string | null
   legal_name: string | null
+  trade_name?: string | null
   cpf: string | null
   cnpj: string | null
 }
@@ -103,7 +104,7 @@ export async function getCustomersAutocomplete(
 
   let query = supabase
     .from('customers')
-    .select('id, person_type, full_name, legal_name, cpf, cnpj')
+    .select('id, person_type, full_name, legal_name, trade_name, cpf, cnpj')
     .eq('company_id', params.companyId)
     .is('deleted_at', null)
     .order('full_name', { ascending: true, nullsFirst: false })
@@ -124,17 +125,22 @@ export async function getCustomersAutocomplete(
     person_type: string
     full_name: string | null
     legal_name: string | null
+    trade_name: string | null
     cpf: string | null
     cnpj: string | null
   }[]
   return list.map((row) => {
     const isPJ = row.person_type === 'juridica'
+    const label = isPJ
+      ? (row.legal_name ?? row.trade_name ?? row.full_name ?? '')
+      : (row.full_name ?? '')
     return {
       id: row.id,
-      label: isPJ ? (row.legal_name ?? '') : (row.full_name ?? ''),
+      label: label.trim() || '—',
       person_type: row.person_type ?? 'fisica',
       full_name: row.full_name ?? null,
       legal_name: row.legal_name ?? null,
+      trade_name: row.trade_name ?? null,
       cpf: row.cpf ?? null,
       cnpj: row.cnpj ?? null,
     }

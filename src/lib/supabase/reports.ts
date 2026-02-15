@@ -11,11 +11,14 @@ async function getContractIdsWithActiveCustomer(
   const supabase = createClient()
   const { data, error } = await supabase
     .from('contracts')
-    .select('id, customer:customers!inner(id)')
+    .select('id, customer:customers!customer_id!inner(id)')
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .is('customer.deleted_at', null)
-  if (error) return []
+  if (error) {
+    console.error('[getContractIdsWithActiveCustomer] Erro ao buscar contratos:', error.message, error.details)
+    throw new Error(`Erro ao buscar contratos: ${error.message}`)
+  }
   return (data ?? []).map((r) => r.id as string)
 }
 
@@ -142,14 +145,14 @@ async function getDashboardStatsLegacy(
     getFinancialSummary(companyId),
     supabase
       .from('contracts')
-      .select('id, customer:customers!inner(id)', { count: 'exact', head: true })
+      .select('id, customer:customers!customer_id!inner(id)', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .eq('status_id', CONTRACT_STATUS.ACTIVE)
       .is('deleted_at', null)
       .is('customer.deleted_at', null),
     supabase
       .from('contracts')
-      .select('id, customer:customers!inner(id)', { count: 'exact', head: true })
+      .select('id, customer:customers!customer_id!inner(id)', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .eq('status_id', CONTRACT_STATUS.ACTIVE)
       .is('deleted_at', null)
@@ -157,14 +160,14 @@ async function getDashboardStatsLegacy(
       .lt('created_at', thisMonthStart),
     supabase
       .from('contracts')
-      .select('id, customer:customers!inner(id)', { count: 'exact', head: true })
+      .select('id, customer:customers!customer_id!inner(id)', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .is('deleted_at', null)
       .is('customer.deleted_at', null)
       .gte('created_at', thisMonthStart),
     supabase
       .from('contracts')
-      .select('id, customer:customers!inner(id)', { count: 'exact', head: true })
+      .select('id, customer:customers!customer_id!inner(id)', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .is('deleted_at', null)
       .is('customer.deleted_at', null)
@@ -206,7 +209,7 @@ async function getTotalReceivableForContractsCreatedBefore(
   const supabase = createClient()
   const { data: contractIds, error: e1 } = await supabase
     .from('contracts')
-    .select('id, customer:customers!inner(id)')
+    .select('id, customer:customers!customer_id!inner(id)')
     .eq('company_id', companyId)
     .is('deleted_at', null)
     .is('customer.deleted_at', null)
@@ -270,14 +273,14 @@ export async function getFinancialSummary(
   if (contractIds.length === 0) {
     const { count: activeCount } = await supabase
       .from('contracts')
-      .select('id, customer:customers!inner(id)', { count: 'exact', head: true })
+      .select('id, customer:customers!customer_id!inner(id)', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .eq('status_id', CONTRACT_STATUS.ACTIVE)
       .is('deleted_at', null)
       .is('customer.deleted_at', null)
     const { count: closedCount } = await supabase
       .from('contracts')
-      .select('id, customer:customers!inner(id)', { count: 'exact', head: true })
+      .select('id, customer:customers!customer_id!inner(id)', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .eq('status_id', CONTRACT_STATUS.CLOSED)
       .is('deleted_at', null)
@@ -319,7 +322,7 @@ export async function getFinancialSummary(
   // Contract counts (apenas contratos cujo cliente não está excluído)
   const { count: activeCount, error: acErr } = await supabase
     .from('contracts')
-    .select('id, customer:customers!inner(id)', { count: 'exact', head: true })
+    .select('id, customer:customers!customer_id!inner(id)', { count: 'exact', head: true })
     .eq('company_id', companyId)
     .eq('status_id', CONTRACT_STATUS.ACTIVE)
     .is('deleted_at', null)
@@ -329,7 +332,7 @@ export async function getFinancialSummary(
 
   const { count: closedCount, error: ccErr } = await supabase
     .from('contracts')
-    .select('id, customer:customers!inner(id)', { count: 'exact', head: true })
+    .select('id, customer:customers!customer_id!inner(id)', { count: 'exact', head: true })
     .eq('company_id', companyId)
     .eq('status_id', CONTRACT_STATUS.CLOSED)
     .is('deleted_at', null)
@@ -436,11 +439,11 @@ export async function getExtratoFinanceiroData(
     .toISOString().slice(0, 10)
 
   const [
-    { data: allInstallments },
-    { data: thisMonthInstallments },
-    { data: lastMonthInstallments },
-    { count: activeContractsCount },
-    { data: activeContractsData },
+    allInstallmentsResult,
+    thisMonthResult,
+    lastMonthResult,
+    activeCountResult,
+    activeDataResult,
   ] = await Promise.all([
     // Todas as parcelas (para totalAvailable e parcelas pendentes)
     supabase
@@ -470,7 +473,7 @@ export async function getExtratoFinanceiroData(
     // Contagem de contratos ativos
     supabase
       .from('contracts')
-      .select('id, customer:customers!inner(id)', { count: 'exact', head: true })
+      .select('id, customer:customers!customer_id!inner(id)', { count: 'exact', head: true })
       .eq('company_id', companyId)
       .eq('status_id', CONTRACT_STATUS.ACTIVE)
       .is('deleted_at', null)
@@ -478,12 +481,35 @@ export async function getExtratoFinanceiroData(
     // Total dos contratos ativos
     supabase
       .from('contracts')
-      .select('total_amount, customer:customers!inner(id)')
+      .select('total_amount, customer:customers!customer_id!inner(id)')
       .eq('company_id', companyId)
       .eq('status_id', CONTRACT_STATUS.ACTIVE)
       .is('deleted_at', null)
       .is('customer.deleted_at', null),
   ])
+
+  // Log de erros das queries paralelas para facilitar diagnóstico
+  if (allInstallmentsResult.error) {
+    console.error('[getExtratoFinanceiroData] Erro ao buscar todas as parcelas:', allInstallmentsResult.error.message)
+  }
+  if (thisMonthResult.error) {
+    console.error('[getExtratoFinanceiroData] Erro ao buscar parcelas deste mês:', thisMonthResult.error.message)
+  }
+  if (lastMonthResult.error) {
+    console.error('[getExtratoFinanceiroData] Erro ao buscar parcelas do mês passado:', lastMonthResult.error.message)
+  }
+  if (activeCountResult.error) {
+    console.error('[getExtratoFinanceiroData] Erro ao contar contratos ativos:', activeCountResult.error.message)
+  }
+  if (activeDataResult.error) {
+    console.error('[getExtratoFinanceiroData] Erro ao buscar total contratos ativos:', activeDataResult.error.message)
+  }
+
+  const allInstallments = allInstallmentsResult.data
+  const thisMonthInstallments = thisMonthResult.data
+  const lastMonthInstallments = lastMonthResult.data
+  const activeContractsCount = activeCountResult.count
+  const activeContractsData = activeDataResult.data
 
   // Saldo total recebido
   let totalAvailable = 0
@@ -492,10 +518,12 @@ export async function getExtratoFinanceiroData(
   const pendingStatuses: number[] = [INSTALLMENT_STATUS.OPEN, INSTALLMENT_STATUS.PARTIAL, INSTALLMENT_STATUS.OVERDUE]
 
   for (const row of allInstallments ?? []) {
-    totalAvailable += Number(row.amount_paid)
+    const paid = Number(row.amount_paid ?? 0)
+    const amount = Number(row.amount ?? 0)
+    totalAvailable += isNaN(paid) ? 0 : paid
     if (pendingStatuses.includes(Number(row.status_id))) {
       pendingCount++
-      pendingTotal += Number(row.amount) - Number(row.amount_paid)
+      pendingTotal += (isNaN(amount) ? 0 : amount) - (isNaN(paid) ? 0 : paid)
     }
   }
 
@@ -503,15 +531,17 @@ export async function getExtratoFinanceiroData(
   let expectedRevenue = 0
   let toReceiveThisMonth = 0
   for (const row of thisMonthInstallments ?? []) {
-    expectedRevenue += Number(row.amount)
+    const amount = Number(row.amount ?? 0)
+    const paid = Number(row.amount_paid ?? 0)
+    expectedRevenue += isNaN(amount) ? 0 : amount
     if (row.status_id !== INSTALLMENT_STATUS.PAID) {
-      toReceiveThisMonth += Number(row.amount) - Number(row.amount_paid)
+      toReceiveThisMonth += (isNaN(amount) ? 0 : amount) - (isNaN(paid) ? 0 : paid)
     }
   }
 
   // Receitas previstas mês passado (para variação %)
   const lastMonthRevenue = (lastMonthInstallments ?? []).reduce(
-    (sum, row) => sum + Number(row.amount), 0
+    (sum, row) => { const v = Number(row.amount ?? 0); return sum + (isNaN(v) ? 0 : v) }, 0
   )
   const expectedRevenueChange = lastMonthRevenue > 0
     ? ((expectedRevenue - lastMonthRevenue) / lastMonthRevenue) * 100
@@ -622,7 +652,7 @@ export async function getRecentMovements(
       .from('contracts')
       .select(`
         id, contract_number, total_amount, created_at,
-        customer:customers!inner ( full_name, legal_name )
+        customer:customers!customer_id!inner ( full_name, legal_name )
       `)
       .eq('company_id', companyId)
       .is('deleted_at', null)
@@ -882,7 +912,7 @@ contracts (
             .from('contracts')
             .select(`
               id, contract_number, total_amount, created_at,
-              customer:customers!inner ( full_name, legal_name )
+              customer:customers!customer_id!inner ( full_name, legal_name )
             `, { count: 'exact' })
             .eq('company_id', companyId)
             .is('deleted_at', null)

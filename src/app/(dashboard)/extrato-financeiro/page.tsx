@@ -130,7 +130,8 @@ export default function ExtratoFinanceiroPage() {
       setContracts(contractsData)
       setMovements(movementsData)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao carregar extrato.')
+      console.error('[ExtratoFinanceiro] Erro ao carregar dados:', e)
+      setError(e instanceof Error ? e.message : 'Erro ao carregar extrato financeiro. Verifique sua conexão e tente novamente.')
     } finally {
       setLoading(false)
     }

@@ -3,10 +3,11 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 const LOGIN_PATH = '/login'
 const CADASTRE_SE_PATH = '/cadastre-se'
+const FORGOT_PASSWORD_PATH = '/esqueci-senha'
 const HOME_PATH = '/home'
 
 function isAuthRoute(pathname: string) {
-  return pathname === LOGIN_PATH || pathname === CADASTRE_SE_PATH
+  return pathname === LOGIN_PATH || pathname === CADASTRE_SE_PATH || pathname === FORGOT_PASSWORD_PATH
 }
 
 function isProtectedRoute(pathname: string) {

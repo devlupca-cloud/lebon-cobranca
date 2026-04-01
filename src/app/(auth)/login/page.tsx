@@ -143,12 +143,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-sm text-[#536471]">
-          Não tem conta?{' '}
-          <Link href="/cadastre-se" className="font-medium text-[#1E3A8A] hover:text-[#1d4ed8]">
-            Cadastre-se
-          </Link>
-        </p>
+        {/* Cadastro desabilitado por enquanto */}
       </div>
     </div>
   )

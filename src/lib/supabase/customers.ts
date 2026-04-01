@@ -10,21 +10,30 @@ export type GetCustomersParams = {
   cpf?: string
   cnpj?: string
   statusId?: number | null
+  startDate?: string | null
+  endDate?: string | null
 }
 
 /**
  * Lista clientes (via RPC get_customers).
- * Importante: a RPC get_customers no Supabase DEVE filtrar por deleted_at IS NULL,
- * para que clientes com exclusão lógica não apareçam na listagem.
+ * Quando filtros de data são fornecidos, usa query direta para suportar filtro por created_at.
  */
 export async function getCustomers(
   params: GetCustomersParams
 ): Promise<GetCustomersResponse> {
   const supabase = createClient()
+  const limit = params.limit ?? 20
+  const offset = params.offset ?? 0
+  const hasDateFilter = params.startDate || params.endDate
+
+  if (hasDateFilter) {
+    return getCustomersWithDateFilter(params)
+  }
+
   const { data, error } = await supabase.rpc('get_customers', {
     p_company_id: params.companyId || null,
-    p_limit: params.limit ?? 20,
-    p_offset: params.offset ?? 0,
+    p_limit: limit,
+    p_offset: offset,
     p_name: params.name || null,
     p_cpf: params.cpf || null,
     p_cnpj: params.cnpj || null,
@@ -43,7 +52,64 @@ export async function getCustomers(
     }
   }
 
-  return { total: 0, limit: params.limit ?? 20, offset: params.offset ?? 0, data: [] }
+  return { total: 0, limit, offset, data: [] }
+}
+
+/** Query direta para quando filtros de data estão ativos. */
+async function getCustomersWithDateFilter(
+  params: GetCustomersParams
+): Promise<GetCustomersResponse> {
+  const supabase = createClient()
+  const limit = params.limit ?? 20
+  const offset = params.offset ?? 0
+
+  let query = supabase
+    .from('customers')
+    .select(`
+      *,
+      status:customer_statuses ( id, name ),
+      address:addresses ( id, city, state, street, number, zip_code, neighbourhood, additional_info )
+    `, { count: 'exact' })
+    .eq('company_id', params.companyId)
+    .is('deleted_at', null)
+
+  if (params.name) {
+    query = query.or(`full_name.ilike.%${params.name}%,legal_name.ilike.%${params.name}%,trade_name.ilike.%${params.name}%`)
+  }
+  if (params.cpf) {
+    query = query.ilike('cpf', `%${params.cpf}%`)
+  }
+  if (params.cnpj) {
+    query = query.ilike('cnpj', `%${params.cnpj}%`)
+  }
+  if (params.statusId) {
+    query = query.eq('status_id', params.statusId)
+  }
+  if (params.startDate) {
+    query = query.gte('created_at', params.startDate)
+  }
+  if (params.endDate) {
+    query = query.lte('created_at', params.endDate + 'T23:59:59')
+  }
+
+  query = query
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1)
+
+  const { data, error, count } = await query
+
+  if (error) throw error
+
+  const rows = (data ?? []).map((raw: Record<string, unknown>) => {
+    const statusRaw = raw.status as { id: number; name: string } | { id: number; name: string }[] | null
+    const addressRaw = raw.address as Record<string, string> | Record<string, string>[] | null
+    const status = Array.isArray(statusRaw) ? statusRaw[0] ?? undefined : statusRaw ?? undefined
+    const address = Array.isArray(addressRaw) ? addressRaw[0] ?? undefined : addressRaw ?? undefined
+    const { status: _s, address: _a, status_id: _si, address_id: _ai, ...rest } = raw as Record<string, unknown>
+    return { ...rest, status, address } as CustomerFromAPI
+  })
+
+  return { total: count ?? 0, limit, offset, data: rows }
 }
 
 export async function getCustomerById(id: string): Promise<Customer | null> {

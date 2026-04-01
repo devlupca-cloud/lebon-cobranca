@@ -130,13 +130,13 @@ export default function CadastrarFluxoDeCaixaPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="titulo" className={labelClass}>
-                Título
+                Tipo
               </label>
               <input
                 id="titulo"
                 type="text"
                 className={input}
-                placeholder="Título"
+                placeholder="Tipo"
                 value={titulo}
                 onChange={(e) => setTitulo(e.target.value)}
               />

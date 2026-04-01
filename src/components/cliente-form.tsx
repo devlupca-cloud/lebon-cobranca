@@ -220,22 +220,26 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
     })
   }
 
-  async function handleCepBlur() {
-    const cep = form.zip_code.replace(/\D/g, '')
+  const cepFetchedRef = useRef<string | null>(null)
+
+  const fetchCepAddress = useCallback(async (cepValue: string) => {
+    const cep = cepValue.replace(/\D/g, '')
     if (cep.length !== 8) {
       setCepError(null)
       return
     }
+    if (cepFetchedRef.current === cep) return
+    cepFetchedRef.current = cep
     setCepError(null)
     setCepLoading(true)
     try {
-      const address = await fetchAddressByCep(form.zip_code)
+      const address = await fetchAddressByCep(cepValue)
       if (address) {
         updateForm({
-          street: address.logradouro || form.street,
-          neighbourhood: address.bairro || form.neighbourhood,
-          city: address.localidade || form.city,
-          state: address.uf || form.state,
+          street: address.logradouro || '',
+          neighbourhood: address.bairro || '',
+          city: address.localidade || '',
+          state: address.uf || '',
         })
       } else {
         setCepError('CEP não encontrado.')
@@ -245,6 +249,17 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
     } finally {
       setCepLoading(false)
     }
+  }, [])
+
+  useEffect(() => {
+    const cep = form.zip_code.replace(/\D/g, '')
+    if (cep.length !== 8) return
+    const t = setTimeout(() => fetchCepAddress(form.zip_code), 400)
+    return () => clearTimeout(t)
+  }, [form.zip_code, fetchCepAddress])
+
+  function handleCepBlur() {
+    fetchCepAddress(form.zip_code)
   }
 
   function buildPayload() {

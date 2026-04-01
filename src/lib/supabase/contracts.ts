@@ -170,6 +170,38 @@ export async function getInstallmentsByContract(
   return (data ?? []) as ContractInstallment[]
 }
 
+// ──────────────────────────── Auto-number ─────────────────────────
+
+const CONTRACT_NUMBER_PREFIX = 'LCMO'
+const CONTRACT_NUMBER_PAD = 5
+
+export async function getNextContractNumber(companyId: string): Promise<string> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('contracts')
+    .select('contract_number')
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+    .not('contract_number', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw error
+
+  let nextNumber = 1
+
+  if (data?.contract_number) {
+    const numericPart = data.contract_number.replace(/\D/g, '')
+    const parsed = parseInt(numericPart, 10)
+    if (!isNaN(parsed)) {
+      nextNumber = parsed + 1
+    }
+  }
+
+  return `${CONTRACT_NUMBER_PREFIX}${String(nextNumber).padStart(CONTRACT_NUMBER_PAD, '0')}`
+}
+
 // ──────────────────────────── Insert ───────────────────────────────
 
 export type InsertContractInput = {

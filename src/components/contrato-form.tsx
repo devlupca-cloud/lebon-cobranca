@@ -4,7 +4,7 @@ import { Button } from '@/components/ui'
 import { getCompanyId } from '@/lib/supabase/company'
 import { getCustomersAutocomplete, type CustomerAutocompleteItem } from '@/lib/supabase/customers'
 import { formatCPF, formatCNPJ } from '@/lib/format'
-import { insertContract, updateContract } from '@/lib/supabase/contracts'
+import { insertContract, updateContract, getNextContractNumber } from '@/lib/supabase/contracts'
 import { CONTRACT_STATUS, CONTRACT_CATEGORY, CONTRACT_TYPE } from '@/types/enums'
 import type { ContractWithRelations } from '@/types/database'
 import { pageTitle, pageSubtitle, label, input, card } from '@/lib/design'
@@ -186,6 +186,16 @@ export function ContratoForm({
       setLoadingCompany(false)
     })
   }, [companyIdProp])
+
+  // Auto-generate contract number for new contracts
+  useEffect(() => {
+    if (mode !== 'create' || !companyId) return
+    let cancelled = false
+    getNextContractNumber(companyId).then((num) => {
+      if (!cancelled) setForm((f) => ({ ...f, contract_number: num }))
+    })
+    return () => { cancelled = true }
+  }, [mode, companyId])
 
   const fetchCustomers = useCallback(async () => {
     if (!companyId) return
@@ -609,8 +619,9 @@ export function ContratoForm({
                   type="text"
                   value={form.contract_number}
                   onChange={(e) => setForm((f) => ({ ...f, contract_number: e.target.value }))}
-                  placeholder="Ex.: LCMO02598"
+                  placeholder="Gerando..."
                   className={input}
+                  readOnly={mode === 'create'}
                   disabled={isFieldDisabled('contract_number')}
                 />
               </div>
@@ -666,9 +677,9 @@ export function ContratoForm({
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className={label}>Taxa administrativa</label>
+                <label className={label}>Taxa administrativa (%)</label>
                 <div className="flex rounded-[8px] border border-[#e5e7eb] bg-white focus-within:border-[#1E3A8A] focus-within:ring-2 focus-within:ring-[#1E3A8A]/20">
-                  <span className="flex h-[42px] items-center pl-3 text-sm text-[#57636C]">R$</span>
+                  <span className="flex h-[42px] items-center pl-3 text-sm text-[#57636C]">%</span>
                   <input
                     type="text"
                     inputMode="decimal"

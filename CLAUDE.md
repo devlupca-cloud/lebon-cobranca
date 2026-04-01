@@ -1,88 +1,115 @@
-# Lebon Cobranças – Instruções do projeto
+# CLAUDE.md
 
-Aplicação web para gestão de cobranças: **Next.js 16**, **React**, **Supabase**, **Tailwind CSS**.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Contexto
+## Projeto
 
-Migração do front de **FlutterFlow para Next.js (React)**. Backend em construção no Supabase (tabelas, RLS, `company_id` via `company_users`).
+Aplicacao web para gestao de cobrancas: **Next.js 16** (App Router), **React 19**, **Supabase**, **Tailwind CSS 4**.
 
-**Referências obrigatórias:** @README e @docs/DESIGN.md.
+Migracao do front de **FlutterFlow para Next.js (React)**. Backend em construcao no Supabase (tabelas, RLS, `company_id` via `company_users`).
 
-## Comandos úteis
+**Referencias obrigatorias:** `README.md` e `docs/DESIGN.md`.
 
-- `npm run dev` – desenvolvimento
-- `npm run build` – build de produção
-- `npm run lint` – ESLint
-- `npx supabase` – CLI do Supabase (v2.76.7) para acessar banco, migrations, etc.
+## Comandos
 
-## Estrutura do projeto
+- `npm run dev` -- desenvolvimento (http://localhost:3000)
+- `npm run build` -- build de producao
+- `npm run lint` -- ESLint
+- `npm run start` -- servidor de producao (apos build)
+- `npx supabase` -- CLI do Supabase (v2.76.7) para schema, migrations, RLS
 
-```
-src/
-├── app/
-│   ├── (auth)/          # login, cadastre-se
-│   └── (dashboard)/     # páginas internas (layout: Sidebar + Header)
-├── components/
-│   ├── ui/              # Button, Input, Modal, LoadingScreen
-│   └── *.tsx            # componentes de domínio (forms, popups)
-├── contexts/            # HeaderProvider (header dinâmico)
-├── hooks/               # useCompanyId
-├── lib/
-│   ├── design.ts        # tokens do design system
-│   ├── format.ts        # CPF, CNPJ, datas, moeda
-│   ├── auth.ts          # signOut
-│   ├── viacep.ts        # busca de endereço por CEP
-│   └── supabase/        # client, server, customers, contracts, etc.
-└── types/
-    └── database.ts      # tipos das tabelas
-```
+## Variaveis de ambiente
 
-## Quatro papéis (agentes)
+Arquivo `.env.local` (nao commitar) com:
+- `NEXT_PUBLIC_SUPABASE_URL` -- URL do projeto Supabase
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` -- chave anon do Supabase
 
-As regras em `.claude/rules/` definem o comportamento por contexto. São ativadas automaticamente pelos paths dos arquivos:
+## Arquitetura
+
+### Autenticacao e middleware
+
+`src/middleware.ts` intercepta todas as rotas:
+- Usuarios nao autenticados sao redirecionados para `/login`
+- Usuarios autenticados em rotas de auth (`/login`, `/cadastre-se`) vao para `/home`
+- Rota `/` redireciona conforme estado de autenticacao
+- Supabase auth via `@supabase/ssr` com cookies
+
+### Multi-tenancy
+
+Todo acesso a dados filtra por `company_id`. A tabela `company_users` mapeia usuarios a empresas.
+- **Client components:** `useCompanyId()` hook (de `src/hooks/use-company-id.ts`)
+- **Server/effects:** `getCompanyId()` (de `src/lib/supabase/`)
+- Nunca hardcodar `company_id`
+
+### Estrutura de rotas
+
+- `src/app/(auth)/` -- login, cadastro (layout sem sidebar)
+- `src/app/(dashboard)/` -- paginas internas (layout com Sidebar + Header)
+- Rotas em portugues, kebab-case (ex: `fluxo-de-caixa`, `gerar-documentos`)
+
+### Camada de dados
+
+Funcoes em `src/lib/supabase/` (um arquivo por dominio: `customers.ts`, `contracts.ts`, etc.):
+- Client browser: `createClient()` de `@/lib/supabase/client`
+- Client server: `createServerClient()` de `@/lib/supabase/server`
+- Sempre filtrar por `company_id`
+- Erros: `throw new Error(error.message)` -- front trata com try/catch
+- Soft delete: setar `deleted_at`, nunca deletar de verdade
+- RPCs: `supabase.rpc('nome', { params })`
+
+### Design system
+
+Tokens centralizados em `src/lib/design.ts`: `input`, `label`, `buttonPrimary`, `buttonSecondary`, `card`, `tableHead`, `tableCell`, `tableCellMuted`, `pillType`, `pageTitle`, `pageSubtitle`.
+
+- **Sempre** importar de `@/lib/design` em vez de hardcodar Tailwind
+- CSS variables em `src/app/globals.css`
+- Documentacao completa em `docs/DESIGN.md`
+- Icones: `react-icons/md` (Material Design)
+- Formatacao (CPF, CNPJ, moeda, datas): `@/lib/format`
+
+### Header dinamico
+
+`HeaderProvider` em `src/contexts/header-context.tsx` permite que cada pagina injete conteudo no header via `useHeader().setLeftContent()`. Limpar no cleanup do useEffect.
+
+## Quatro papeis (agentes)
+
+Regras detalhadas em `.claude/rules/` sao ativadas automaticamente pelos paths dos arquivos:
 
 | Papel | Quando ativa | Arquivo |
 |-------|-------------|---------|
 | **Front** | Telas, componentes, rotas, hooks | `.claude/rules/front.md` |
-| **Back** | Funções Supabase, tipos | `.claude/rules/back.md` |
-| **QA** | Testes, revisão de qualidade | `.claude/rules/qa.md` |
+| **Back** | Funcoes Supabase, tipos | `.claude/rules/back.md` |
+| **QA** | Testes, revisao de qualidade | `.claude/rules/qa.md` |
 | **UX/UI** | Design system, acessibilidade | `.claude/rules/ux-ui.md` |
 
-Você também pode invocar explicitamente: "como agente front, migra essa tela" ou "como back, cria a função de listagem".
+Invocacao explicita: "como agente front, migra essa tela" ou "como back, cria a funcao de listagem".
 
-## Workflow de migração (FlutterFlow → React)
+## Workflow de migracao (FlutterFlow -> React)
 
-Ao migrar uma tela do FlutterFlow:
+1. **Entender a tela original** -- campos, acoes, navegacao, dados consumidos
+2. **Criar a rota** -- em `src/app/(dashboard)/nome-da-tela/page.tsx`
+3. **Seguir o esqueleto de pagina** -- descrito em `.claude/rules/front.md` (useCompanyId -> loading -> error -> conteudo)
+4. **Criar funcoes de dados** -- em `src/lib/supabase/` seguindo padrao de `.claude/rules/back.md`
+5. **Usar design system** -- importar tokens de `@/lib/design`
+6. **Extrair componentes** -- reutilizaveis em `src/components/`
+7. **Validar** -- checklist do `.claude/rules/qa.md`
 
-1. **Entender a tela original** – campos, ações, navegação, dados consumidos
-2. **Criar a rota** – em `src/app/(dashboard)/nome-da-tela/page.tsx` (slug em português, kebab-case)
-3. **Seguir o esqueleto de página** – descrito em `front.md` (useCompanyId → loading → error → conteúdo)
-4. **Criar funções de dados** – em `src/lib/supabase/` se não existirem, seguindo padrão de `back.md`
-5. **Usar design system** – importar tokens de `@/lib/design`, nunca inventar estilos novos
-6. **Extrair componentes** – se um trecho de UI for reutilizável, criar em `src/components/`
-7. **Validar** – usar checklist do `qa.md` para revisar antes de finalizar
+## Paginas ja migradas
 
-## Páginas já migradas
+Login, cadastro, home, clientes (listagem/cadastro/edicao/detalhes), contratos (listagem/novo), inadimplentes, simulacao, fluxo de caixa, extrato financeiro, gerar documentos, financiamento, cheque financiamento, emprestimos, cadastro geral, base de calculo, cadastrar fluxo de caixa, cadastrar acesso, perfil.
 
-- Login e cadastro (auth)
-- Home (dashboard)
-- Clientes: listagem, cadastro, edição, detalhes
-- Contratos: listagem, novo contrato
-- Inadimplentes
-- Simulação
-- Fluxo de caixa
-- Extrato financeiro
-- Gerar documentos
-- Financiamento, cheque financiamento
-- Empréstimos
-- Cadastro geral, base de cálculo
-- Cadastrar fluxo de caixa, cadastrar acesso
-- Perfil
+## Dados de exemplo (seed)
+
+- **Pre-requisito:** usuario logado vinculado a empresa em `company_users`
+- **Local:** `npx supabase db reset` (aplica migrations + `supabase/seed.sql`)
+- **Hospedado:** executar `supabase/seed.sql` no SQL Editor do Supabase
+- **Limpar e repopular:** executar `supabase/clean-data.sql` e depois `supabase/seed.sql`
 
 ## Regras gerais
 
-- **Idioma do código:** inglês para nomes de variáveis/funções, português para textos exibidos ao usuário
+- **Idioma do codigo:** ingles para variaveis/funcoes, portugues para textos exibidos ao usuario
 - **Multi-tenant:** Todo acesso a dados filtra por `company_id`
-- **Soft delete:** Usar `deleted_at` em vez de DELETE
-- **Sem `any`:** Tipos explícitos sempre
+- **Soft delete:** `deleted_at` em vez de DELETE
+- **Sem `any`:** Tipos explicitos sempre (tipos em `src/types/database.ts`)
 - **Design tokens:** Nunca hardcodar Tailwind para algo que tem constante em `design.ts`
+- **Bibliotecas:** Priorizar libs prontas (`react-icons`, formatacao, validacao) em vez de reimplementar

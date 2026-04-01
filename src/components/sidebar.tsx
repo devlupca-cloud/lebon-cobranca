@@ -10,6 +10,7 @@ import {
   MdChevronLeft,
   MdChevronRight,
   MdClose,
+  MdDashboard,
   MdDocumentScanner,
   MdEditDocument,
   MdGridOn,
@@ -21,6 +22,7 @@ import {
 const STORAGE_KEY = 'sidebar-collapsed'
 
 const SIDEBAR_LINKS = [
+  { href: '/home', label: 'Dashboard', icon: MdDashboard },
   { href: '/clientes', label: 'Clientes', icon: MdBusiness },
   { href: '/inadimplentes01', label: 'Inadimplêntes', icon: MdClose },
   { href: '/contratos', label: 'Contrato', icon: MdDocumentScanner },

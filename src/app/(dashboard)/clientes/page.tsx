@@ -27,6 +27,8 @@ export default function ClientesPage() {
   const [searchCpf, setSearchCpf] = useState('')
   const [searchCnpj, setSearchCnpj] = useState('')
   const [statusFilter, setStatusFilter] = useState<number>(0)
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const [detailCustomer, setDetailCustomer] = useState<CustomerFromAPI | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
   const [customerToDelete, setCustomerToDelete] = useState<CustomerFromAPI | null>(null)
@@ -34,7 +36,7 @@ export default function ClientesPage() {
 
   // Debounced search: only fires the RPC after 400ms of inactivity
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [debouncedFilters, setDebouncedFilters] = useState({ name: '', cpf: '', cnpj: '', status: 0 })
+  const [debouncedFilters, setDebouncedFilters] = useState({ name: '', cpf: '', cnpj: '', status: 0, startDate: '', endDate: '' })
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -44,10 +46,12 @@ export default function ClientesPage() {
         cpf: searchCpf.replace(/\D/g, ''),
         cnpj: searchCnpj.replace(/\D/g, ''),
         status: statusFilter,
+        startDate,
+        endDate,
       })
     }, 400)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
-  }, [searchName, searchCpf, searchCnpj, statusFilter])
+  }, [searchName, searchCpf, searchCnpj, statusFilter, startDate, endDate])
 
   // Ao mudar filtros ou itens por página, voltar para a página 1
   useEffect(() => {
@@ -71,6 +75,8 @@ export default function ClientesPage() {
         cpf: debouncedFilters.cpf || undefined,
         cnpj: debouncedFilters.cnpj || undefined,
         statusId: debouncedFilters.status === 0 ? null : debouncedFilters.status,
+        startDate: debouncedFilters.startDate || null,
+        endDate: debouncedFilters.endDate || null,
       })
       setCustomers(list(res.data))
       setTotal(res.total)
@@ -91,8 +97,10 @@ export default function ClientesPage() {
     setSearchCpf('')
     setSearchCnpj('')
     setStatusFilter(0)
+    setStartDate('')
+    setEndDate('')
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    setDebouncedFilters({ name: '', cpf: '', cnpj: '', status: 0 })
+    setDebouncedFilters({ name: '', cpf: '', cnpj: '', status: 0, startDate: '', endDate: '' })
   }, [])
 
   const handleDeleteClick = useCallback((c: CustomerFromAPI) => {
@@ -114,6 +122,29 @@ export default function ClientesPage() {
       setDeletingId(null)
     }
   }, [companyId, customerToDelete, fetchCustomers])
+
+  const handleExportCSV = useCallback(() => {
+    const items = list(customers)
+    const headers = ['Código', 'Tipo', 'CPF/CNPJ', 'Nome/Razão Social', 'Telefone', 'E-mail', 'Cidade', 'Status']
+    const rows = items.map((c) => [
+      c.customer_code ?? c.id.slice(0, 8),
+      c.person_type === 'juridica' ? 'PJ' : 'PF',
+      c.person_type === 'juridica' ? (c.cnpj ?? '') : (c.cpf ?? ''),
+      c.person_type === 'juridica' ? (c.trade_name ?? c.legal_name ?? '') : (c.full_name ?? ''),
+      c.phone ?? c.mobile ?? '',
+      c.email ?? '',
+      [c.address?.city, c.address?.state].filter(Boolean).join('/'),
+      c.status?.name ?? '',
+    ])
+    const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `clientes_${new Date().toISOString().split('T')[0]}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [customers])
 
   const { setLeftContent, setTitle, setBreadcrumb } = useHeader()
   useEffect(() => {
@@ -221,7 +252,25 @@ export default function ClientesPage() {
               <option value={2}>Inativos</option>
             </select>
           </div>
-          <button type="button" className={buttonPrimary} onClick={() => {}}>
+          <div className="w-[160px]">
+            <label className={labelClass}>Data início</label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className={input}
+            />
+          </div>
+          <div className="w-[160px]">
+            <label className={labelClass}>Data fim</label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className={input}
+            />
+          </div>
+          <button type="button" className={buttonPrimary} onClick={handleExportCSV} disabled={loading || customerList.length === 0}>
             <MdEditDocument className="mr-2 h-5 w-5" />
             Relatórios
           </button>

@@ -21,10 +21,21 @@ function formatCurrency(value: number) {
   }).format(value)
 }
 
-function formatDate(iso: string) {
+function formatDate(iso: string | null) {
   if (!iso || iso.length < 10) return '—'
   const [y, m, d] = iso.slice(0, 10).split('-')
   return `${d}/${m}/${y}`
+}
+
+function getExpenseStatus(row: CompanyExpense): { label: string; className: string } {
+  if (row.payment_date) {
+    return { label: 'Pago', className: 'bg-[#249689]/15 text-[#249689]' }
+  }
+  const today = new Date().toISOString().slice(0, 10)
+  if (row.due_date < today) {
+    return { label: 'Atrasado', className: 'bg-red-100 text-red-700' }
+  }
+  return { label: 'Pendente', className: 'bg-blue-100 text-blue-700' }
 }
 
 export default function ContasAPagarPage() {
@@ -176,25 +187,35 @@ export default function ContasAPagarPage() {
                 <tr>
                   <th className={tableHead}>Nome de Empresa</th>
                   <th className={tableHead}>Valor</th>
-                  <th className={tableHead}>Data</th>
+                  <th className={tableHead}>Data de Vencimento</th>
+                  <th className={tableHead}>Data de Pagamento</th>
                   <th className={tableHead}>Tipo</th>
+                  <th className={tableHead}>Status</th>
                   <th className={`${tableHead} text-right`}>Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E0E3E7] bg-white">
                 {expenses.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-sm text-[#57636C]">
+                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-[#57636C]">
                       Nenhuma conta a pagar no período.
                     </td>
                   </tr>
                 ) : (
-                  expenses.map((row) => (
+                  expenses.map((row) => {
+                    const status = getExpenseStatus(row)
+                    return (
                     <tr key={row.id} className="hover:bg-[#f8fafc]">
                       <td className={tableCell}>{row.payee_name}</td>
                       <td className={tableCell}>{formatCurrency(row.amount)}</td>
                       <td className={tableCellMuted}>{formatDate(row.due_date)}</td>
+                      <td className={tableCellMuted}>{formatDate(row.payment_date)}</td>
                       <td className={tableCellMuted}>{row.expense_type}</td>
+                      <td className={tableCell}>
+                        <span className={'inline-flex rounded-[8px] px-2.5 py-0.5 text-xs font-medium ' + status.className}>
+                          {status.label}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-1">
                           <Link
@@ -226,7 +247,8 @@ export default function ContasAPagarPage() {
                         </div>
                       </td>
                     </tr>
-                  ))
+                    )
+                  })
                 )}
               </tbody>
             </table>

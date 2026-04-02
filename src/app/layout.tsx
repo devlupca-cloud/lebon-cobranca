@@ -2,8 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "App Lebon Marcos",
-  description: "App Lebon Marcos - versão web",
+  title: "Lebon Cobrança",
+  description: "Lebon Cobrança - Sistema de gestão de cobranças",
+  icons: {
+    icon: "/icon-192.png",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({

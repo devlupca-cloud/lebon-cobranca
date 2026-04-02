@@ -4,18 +4,48 @@ import { createClient } from '@/lib/supabase/client'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { MdVisibility, MdVisibilityOff } from 'react-icons/md'
+
+/** Read error from ?error= query string OR #error= hash fragment (Supabase uses both) */
+function useAuthError(): string | null {
+  const searchParams = useSearchParams()
+  const [hashError, setHashError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const hash = window.location.hash
+    if (hash) {
+      const params = new URLSearchParams(hash.substring(1))
+      const desc = params.get('error_description')
+      const code = params.get('error_code')
+      if (desc || code) {
+        const msg = code === 'otp_expired'
+          ? 'O link expirou ou já foi utilizado. Solicite um novo.'
+          : desc?.replace(/\+/g, ' ') ?? 'Erro de autenticação.'
+        setHashError(msg)
+        // Clean the hash from URL
+        window.history.replaceState(null, '', window.location.pathname)
+      }
+    }
+  }, [])
+
+  const queryError = searchParams.get('error')
+  return hashError ?? queryError
+}
 
 function LoginForm() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const urlError = searchParams.get('error')
+  const urlError = useAuthError()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(urlError)
   const [loading, setLoading] = useState(false)
+
+  // Sync urlError when it arrives from hash (async via useEffect)
+  useEffect(() => {
+    if (urlError) setError(urlError)
+  }, [urlError])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

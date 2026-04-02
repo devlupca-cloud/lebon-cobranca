@@ -21,10 +21,10 @@ function isProtectedRoute(pathname: string) {
 }
 
 export async function middleware(request: NextRequest) {
-  // If there's a ?code= param, redirect to /auth/callback to exchange it for a session.
-  // Supabase sends recovery/magic-link codes to the Site URL root by default.
+  // If there's a ?code= param (but NOT already on /auth/callback), redirect to the callback
+  // route to exchange it for a session. Supabase sends recovery codes to the Site URL root.
   const code = request.nextUrl.searchParams.get('code')
-  if (code) {
+  if (code && request.nextUrl.pathname !== '/auth/callback') {
     const callbackUrl = new URL('/auth/callback', request.url)
     callbackUrl.searchParams.set('code', code)
     const next = request.nextUrl.searchParams.get('next') ?? '/redefinir-senha'

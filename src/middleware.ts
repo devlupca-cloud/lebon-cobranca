@@ -4,10 +4,15 @@ import { NextResponse, type NextRequest } from 'next/server'
 const LOGIN_PATH = '/login'
 const CADASTRE_SE_PATH = '/cadastre-se'
 const FORGOT_PASSWORD_PATH = '/esqueci-senha'
+const RESET_PASSWORD_PATH = '/redefinir-senha'
 const HOME_PATH = '/home'
 
 function isAuthRoute(pathname: string) {
   return pathname === LOGIN_PATH || pathname === CADASTRE_SE_PATH || pathname === FORGOT_PASSWORD_PATH
+}
+
+function isResetPasswordRoute(pathname: string) {
+  return pathname === RESET_PASSWORD_PATH
 }
 
 function isProtectedRoute(pathname: string) {
@@ -39,6 +44,14 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
+
+  // Allow authenticated users on /redefinir-senha (they just came from the reset email)
+  if (isResetPasswordRoute(request.nextUrl.pathname)) {
+    if (!user) {
+      return NextResponse.redirect(new URL(LOGIN_PATH, request.url))
+    }
+    return response
+  }
 
   if (user && isAuthRoute(request.nextUrl.pathname)) {
     return NextResponse.redirect(new URL(HOME_PATH, request.url))

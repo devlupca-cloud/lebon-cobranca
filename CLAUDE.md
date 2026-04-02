@@ -49,13 +49,14 @@ Todo acesso a dados filtra por `company_id`. A tabela `company_users` mapeia usu
 
 ### Camada de dados
 
-Funcoes em `src/lib/supabase/` (um arquivo por dominio: `customers.ts`, `contracts.ts`, etc.):
+Funcoes em `src/lib/supabase/` (um arquivo por dominio: `customers.ts`, `contracts.ts`, `installments.ts`, `payments.ts`, `expenses.ts`, `reports.ts`, `activity.ts`, `admin.ts`, `users.ts`, `files.ts`, `storage.ts`, `company.ts`):
 - Client browser: `createClient()` de `@/lib/supabase/client`
 - Client server: `createServerClient()` de `@/lib/supabase/server`
 - Sempre filtrar por `company_id`
 - Erros: `throw new Error(error.message)` -- front trata com try/catch
 - Soft delete: setar `deleted_at`, nunca deletar de verdade
-- RPCs: `supabase.rpc('nome', { params })`
+- RPCs: `supabase.rpc('nome', { params })` -- ex: `get_my_profile` em `company.ts`
+- PDF: `jspdf` disponivel para geracao de documentos
 
 ### Design system
 
@@ -67,9 +68,12 @@ Tokens centralizados em `src/lib/design.ts`: `input`, `label`, `buttonPrimary`, 
 - Icones: `react-icons/md` (Material Design)
 - Formatacao (CPF, CNPJ, moeda, datas): `@/lib/format`
 
-### Header dinamico
+### Contextos do dashboard
 
-`HeaderProvider` em `src/contexts/header-context.tsx` permite que cada pagina injete conteudo no header via `useHeader().setLeftContent()`. Limpar no cleanup do useEffect.
+O layout do dashboard (`src/app/(dashboard)/layout.tsx`) envolve o conteudo com dois providers aninhados:
+
+1. **`DashboardAuthProvider`** (`src/contexts/dashboard-auth-context.tsx`) -- carrega `user` (auth) + `profile` (RPC `get_my_profile`) **uma unica vez** no mount. `useCompanyId()` consome desse contexto dentro do dashboard, evitando chamadas duplicadas. Expoe `refetch()` para recarregar apos atualizar perfil.
+2. **`HeaderProvider`** (`src/contexts/header-context.tsx`) -- permite que cada pagina injete conteudo no header via `useHeader().setLeftContent()`. Limpar no cleanup do useEffect.
 
 ## Quatro papeis (agentes)
 
@@ -96,7 +100,7 @@ Invocacao explicita: "como agente front, migra essa tela" ou "como back, cria a 
 
 ## Paginas ja migradas
 
-Login, cadastro, home, clientes (listagem/cadastro/edicao/detalhes), contratos (listagem/novo), inadimplentes, simulacao, fluxo de caixa, extrato financeiro, gerar documentos, financiamento, cheque financiamento, emprestimos, cadastro geral, base de calculo, cadastrar fluxo de caixa, cadastrar acesso, perfil.
+Login, cadastro, home, clientes (listagem/cadastro/edicao/detalhes), contratos (listagem/novo/detalhes/edicao), inadimplentes, simulacao, fluxo de caixa, extrato financeiro, gerar documentos, financiamento, cheque financiamento, emprestimos, cadastro geral, base de calculo, cadastrar fluxo de caixa, cadastrar acesso, perfil, configuracoes.
 
 ## Dados de exemplo (seed)
 
@@ -112,4 +116,5 @@ Login, cadastro, home, clientes (listagem/cadastro/edicao/detalhes), contratos (
 - **Soft delete:** `deleted_at` em vez de DELETE
 - **Sem `any`:** Tipos explicitos sempre (tipos em `src/types/database.ts`)
 - **Design tokens:** Nunca hardcodar Tailwind para algo que tem constante em `design.ts`
-- **Bibliotecas:** Priorizar libs prontas (`react-icons`, formatacao, validacao) em vez de reimplementar
+- **Bibliotecas:** Priorizar libs prontas (`react-icons`, `jspdf`, formatacao, validacao) em vez de reimplementar
+- **Componentes compartilhados:** Formularios reutilizaveis em `src/components/` (`cliente-form.tsx`, `contrato-form.tsx`), popups (`popup-*.tsx`), UI primitivos em `src/components/ui/` (`button`, `input`, `modal`, `confirm-modal`, `loading`, `table-pagination`)

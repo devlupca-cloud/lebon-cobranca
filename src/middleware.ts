@@ -11,27 +11,13 @@ function isAuthRoute(pathname: string) {
   return pathname === LOGIN_PATH || pathname === CADASTRE_SE_PATH || pathname === FORGOT_PASSWORD_PATH
 }
 
-function isResetPasswordRoute(pathname: string) {
-  return pathname === RESET_PASSWORD_PATH
-}
-
 function isProtectedRoute(pathname: string) {
-  if (pathname === '/' || isAuthRoute(pathname)) return false
+  if (pathname === '/' || pathname === RESET_PASSWORD_PATH || isAuthRoute(pathname)) return false
+  if (pathname.startsWith('/auth/')) return false
   return true
 }
 
 export async function middleware(request: NextRequest) {
-  // If there's a ?code= param (but NOT already on /auth/callback), redirect to the callback
-  // route to exchange it for a session. Supabase sends recovery codes to the Site URL root.
-  const code = request.nextUrl.searchParams.get('code')
-  if (code && request.nextUrl.pathname !== '/auth/callback') {
-    const callbackUrl = new URL('/auth/callback', request.url)
-    callbackUrl.searchParams.set('code', code)
-    const next = request.nextUrl.searchParams.get('next') ?? '/redefinir-senha'
-    callbackUrl.searchParams.set('next', next)
-    return NextResponse.redirect(callbackUrl)
-  }
-
   const response = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -52,12 +38,37 @@ export async function middleware(request: NextRequest) {
     }
   )
 
+  // ── Handle ?code= from Supabase (password recovery, magic link, etc.) ──
+  // Exchange the code for a session right here in the middleware, then redirect.
+  const code = request.nextUrl.searchParams.get('code')
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
+
+    if (!error) {
+      // Session is set. Copy cookies to a redirect response → /redefinir-senha
+      const redirectUrl = new URL(RESET_PASSWORD_PATH, request.url)
+      const redirectResponse = NextResponse.redirect(redirectUrl)
+      response.cookies.getAll().forEach((cookie) => {
+        redirectResponse.cookies.set(cookie.name, cookie.value, {
+          ...cookie,
+        })
+      })
+      return redirectResponse
+    }
+
+    // Exchange failed → send to login with friendly error
+    return NextResponse.redirect(
+      new URL('/login?error=Link+inv%C3%A1lido+ou+expirado.+Solicite+um+novo.', request.url)
+    )
+  }
+
+  // ── Normal auth checks ──
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Allow authenticated users on /redefinir-senha (they just came from the reset email)
-  if (isResetPasswordRoute(request.nextUrl.pathname)) {
+  // /redefinir-senha: only accessible if authenticated (just came from recovery)
+  if (request.nextUrl.pathname === RESET_PASSWORD_PATH) {
     if (!user) {
       return NextResponse.redirect(new URL(LOGIN_PATH, request.url))
     }

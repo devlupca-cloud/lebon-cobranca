@@ -19,10 +19,10 @@ const COMPANY = {
   name: 'Lebon Serviços de Cobrança - LTDA',
   fullName: 'Lebon Serviços de Cobrança Ltda.',
   cnpj: '30.082.816/0001-72',
-  street: 'Rua Nicolau Leonardo, 155',
-  neighbourhood: 'JD Rainha',
-  cep: '06656-480',
-  city: 'Itapevi',
+  street: 'R. Adelino Cardana, 293 - Bloco C Sala 702',
+  neighbourhood: 'Centro',
+  cep: '06401-147',
+  city: 'Barueri',
   state: 'São Paulo',
   phone: '11 9.7020-0447',
 }
@@ -455,7 +455,7 @@ export async function generateContractPdf(
   // CLÁUSULA 6
   addSectionTitle('CLÁUSULA 6 – Processo Judicial')
   addRichText(
-    '**6.1.** As partes concordam que, em caso de necessidade de processo judicial para a cobrança de valores devidos, o foro competente será o da comarca de Itapevi, renunciando a qualquer outro, por mais privilegiado que seja.',
+    '**6.1.** As partes concordam que, em caso de necessidade de processo judicial para a cobrança de valores devidos, o foro competente será o da comarca de Barueri, renunciando a qualquer outro, por mais privilegiado que seja.',
     10
   )
   y += 3
@@ -486,7 +486,7 @@ export async function generateContractPdf(
   )
   y += 5
   addWrappedText(
-    'Para dirimir qualquer dúvida oriunda deste instrumento fica eleito o foro de Itapevi.',
+    'Para dirimir qualquer dúvida oriunda deste instrumento fica eleito o foro de Barueri.',
     10
   )
   y += 8
@@ -494,7 +494,7 @@ export async function generateContractPdf(
   // Data
   checkPageBreak(10)
   const today = new Date()
-  const dateStr = `Itapevi, ${today.getDate()} de ${MONTHS[today.getMonth()]} de ${today.getFullYear()}`
+  const dateStr = `Barueri, ${today.getDate()} de ${MONTHS[today.getMonth()]} de ${today.getFullYear()}`
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
   doc.text(dateStr, PAGE_WIDTH - MARGIN_RIGHT, y, { align: 'right' })

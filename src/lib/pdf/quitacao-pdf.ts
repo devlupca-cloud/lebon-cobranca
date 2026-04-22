@@ -4,10 +4,10 @@ import type { Contract } from '@/types/database'
 const COMPANY = {
   fullName: 'Lebon Serviços de Cobrança Ltda.',
   cnpj: '30.082.816/0001-72',
-  street: 'Rua Nicolau Leonardo, 155',
-  neighbourhood: 'JD Rainha',
-  cep: '06656-480',
-  city: 'Itapevi',
+  street: 'R. Adelino Cardana, 293 - Bloco C Sala 702',
+  neighbourhood: 'Centro',
+  cep: '06401-147',
+  city: 'Barueri',
   state: 'São Paulo',
   phone: '11 9.7020-0447',
 }

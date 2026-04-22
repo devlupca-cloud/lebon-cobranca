@@ -8,7 +8,7 @@ import { createAgreement } from '@/lib/supabase/installments'
 import { buttonPrimary, buttonSecondary, card, input, label as labelClass, pageSubtitle } from '@/lib/design'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 
 type AgreementContext = {
   contractId: string
@@ -16,6 +16,14 @@ type AgreementContext = {
 }
 
 export default function SimulacaoPage() {
+  return (
+    <Suspense fallback={<LoadingScreen message="Carregando..." />}>
+      <SimulacaoContent />
+    </Suspense>
+  )
+}
+
+function SimulacaoContent() {
   const { setTitle, setBreadcrumb } = useHeader()
   const { companyId, loading: companyLoading, error: companyError } = useCompanyId()
   const router = useRouter()

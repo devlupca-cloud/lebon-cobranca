@@ -332,14 +332,27 @@ export default function ExtratoFinanceiroPage() {
                               : '—'}
                           </td>
                           <td className={tableCell}>
-                            <button
-                              type="button"
-                              onClick={() => router.push(`/detalhes-contrato/${contract.id}`)}
-                              className="rounded-[8px] p-1.5 text-[#536471] transition hover:bg-[#f8fafc] hover:text-[#1E3A8A]"
-                              title="Ver detalhes do contrato"
-                            >
-                              <MdVisibility className="h-5 w-5" />
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => router.push(`/detalhes-contrato/${contract.id}`)}
+                                className="rounded-[8px] p-1.5 text-[#536471] transition hover:bg-[#f8fafc] hover:text-[#1E3A8A]"
+                                title="Ver detalhes do contrato"
+                              >
+                                <MdVisibility className="h-5 w-5" />
+                              </button>
+                              {!isDraft && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPaymentContractId(contract.id)}
+                                  className="inline-flex items-center gap-1 rounded-[8px] border border-[#1E3A8A] bg-white px-2 py-1 text-xs font-medium text-[#1E3A8A] transition-colors hover:bg-[#1E3A8A] hover:text-white"
+                                  title="Registrar pagamento de parcela"
+                                >
+                                  <MdPayment className="h-3.5 w-3.5" />
+                                  Pagar parcela
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       )

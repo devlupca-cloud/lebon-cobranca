@@ -33,6 +33,8 @@ import {
   MdCancel,
   MdDelete,
   MdArrowBack,
+  MdPayment,
+  MdCheckCircle,
 } from 'react-icons/md'
 
 const STATUS_LABELS: Record<number, string> = {
@@ -391,6 +393,7 @@ export default function DetalhesContratoPage() {
                   <th className={tableHead}>Pago</th>
                   <th className={tableHead}>Saldo</th>
                   <th className={tableHead}>Status</th>
+                  <th className={tableHead + ' text-right'}>Ação</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E0E3E7] bg-white">
@@ -398,6 +401,10 @@ export default function DetalhesContratoPage() {
                   const saldo = inst.amount - inst.amount_paid
                   const instStatusLabel = INSTALLMENT_STATUS_LABELS[inst.status_id] ?? '—'
                   const instStatusClass = INSTALLMENT_STATUS_CLASS[inst.status_id] ?? 'bg-[#E0E3E7] text-[#14181B]'
+                  const canPay =
+                    saldo > 0 &&
+                    inst.status_id !== INSTALLMENT_STATUS.CANCELED &&
+                    inst.status_id !== INSTALLMENT_STATUS.RENEGOTIATED
                   return (
                     <tr key={inst.id} className="hover:bg-[#f1f4f8]/50">
                       <td className={tableCell + ' font-medium'}>{inst.installment_number}</td>
@@ -413,6 +420,26 @@ export default function DetalhesContratoPage() {
                         <span className={'inline-flex rounded-[8px] px-2.5 py-0.5 text-xs font-medium ' + instStatusClass}>
                           {instStatusLabel}
                         </span>
+                      </td>
+                      <td className={tableCell + ' text-right'}>
+                        {canPay ? (
+                          <button
+                            type="button"
+                            onClick={() => setQuitacaoOpen(true)}
+                            className="inline-flex items-center gap-1 rounded-[8px] bg-[#1E3A8A] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#1e40af]"
+                            title="Registrar pagamento desta parcela"
+                          >
+                            <MdPayment className="h-3.5 w-3.5" aria-hidden />
+                            Registrar pagamento
+                          </button>
+                        ) : inst.status_id === INSTALLMENT_STATUS.PAID ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-[#249689]">
+                            <MdCheckCircle className="h-3.5 w-3.5" aria-hidden />
+                            Quitada
+                          </span>
+                        ) : (
+                          <span className="text-xs text-[#57636C]">—</span>
+                        )}
                       </td>
                     </tr>
                   )

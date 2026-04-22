@@ -87,6 +87,22 @@ O layout do dashboard (`src/app/(dashboard)/layout.tsx`) envolve o conteudo com 
 1. **`DashboardAuthProvider`** (`src/contexts/dashboard-auth-context.tsx`) -- carrega `user` (auth) + `profile` (RPC `get_my_profile`) **uma unica vez** no mount. `useCompanyId()` consome desse contexto dentro do dashboard, evitando chamadas duplicadas. Expoe `refetch()` para recarregar apos atualizar perfil.
 2. **`HeaderProvider`** (`src/contexts/header-context.tsx`) -- permite que cada pagina injete conteudo no header via `useHeader().setLeftContent()`. Limpar no cleanup do useEffect.
 
+### Botao Voltar automatico
+
+`src/components/dashboard-header.tsx` renderiza um botao `←` no header sempre que o usuario esta em uma sub-rota. Destino em ordem de prioridade:
+1. Penultimo item do `breadcrumb` que tenha `href` (setado por cada pagina via `setBreadcrumb`)
+2. Mapa estatico `BACK_FALLBACK` no proprio `dashboard-header.tsx` (ex: `/detalhes-contrato` -> `/contratos`, `/cadastrar-cliente` -> `/clientes`)
+
+Nao aparece em rotas de listagem (2 niveis de breadcrumb). Para uma nova sub-rota, preferir configurar breadcrumb correto na pagina; o fallback e plano B.
+
+### Dados da empresa (hardcoded nos PDFs)
+
+Endereco oficial do CNPJ 30.082.816/0001-72 esta **duplicado** em 4 geradores (`src/lib/pdf/contract-pdf.ts`, `quitacao-pdf.ts`, `anuencia-pdf.ts`, `ficha-cadastral-pdf.ts`) na const `COMPANY`. Atual: **R. Adelino Cardana, 293 - Bloco C Sala 702, Centro, 06401-147, Barueri - SP, Tel 11 9.7020-0447**.
+
+Se mudar endereco, editar os 4 arquivos. O `contract-pdf.ts` tambem tem 3 mencoes a **Barueri** em texto corrido (Clausula 6, fechamento, data de assinatura) que precisam trocar juntas.
+
+Imagens do PDF (`public/pdf/watermark-lebon.jpg` marca d'agua + `public/pdf/logo-mo.jpg` logo M/O rodape) sao carregadas via `fetch` dentro de `generateContractPdf` -- a funcao e **async**.
+
 ## Quatro papeis (agentes)
 
 Regras detalhadas em `.claude/rules/` sao ativadas automaticamente pelos paths dos arquivos:
@@ -115,6 +131,64 @@ As regras em `.cursor/rules/` (`design-system.mdc`, `use-libraries.mdc`) sao o e
 ## Paginas ja migradas
 
 Login, cadastro, home, clientes (listagem/cadastro/edicao/detalhes), contratos (listagem/novo/detalhes/edicao), inadimplentes, simulacao, fluxo de caixa, extrato financeiro, gerar documentos, financiamento, cheque financiamento, emprestimos, cadastro geral, base de calculo, cadastrar fluxo de caixa, cadastrar acesso, perfil, configuracoes.
+
+## Fluxos de negocio principais
+
+### Criacao de contrato e saldo devedor
+
+Form `src/components/contrato-form.tsx` salva contratos como **Ativo por padrao** (antes era Rascunho). Ao inserir contrato ativo, `insertContract`/`activateContract` em `src/lib/supabase/contracts.ts`:
+
+1. `generateInstallments(contract)` insere N parcelas com `origin_id = CONTRACT (1)`, `status_id = OPEN (1)`
+2. `updateCustomerBalance(customerId, companyId)` em `src/lib/supabase/customers.ts` recalcula `customers.outstanding_balance` somando `(amount - amount_paid)` das parcelas com `status_id IN (1,2,4)` do cliente
+
+Quando pagar parcela (RPC `record_payment`), saldo e recalculado automaticamente. O modal `src/components/popup-detalhes-cliente.tsx` exibe **saldo devedor em vermelho com prefixo `−`** e **limite disponivel = `credit_limit - outstanding_balance`**. Ele hidrata via `getCustomerById` ao abrir, contornando dados desatualizados que viriam da RPC `get_customers`.
+
+### Simulacao -> Novo Contrato
+
+`/simulacao` ao clicar "Novo Contrato" propaga pela URL:
+- `valor` = **total** (parcelas x qtd com juros embutidos)
+- `taxa` = 0 (juros ja embutidos no total)
+- `installmentAmount`, `principal`, `taxaSimulada` (metadata para trilha de auditoria)
+
+`/novo-contrato` consome e, se `principal`/`taxaSimulada` vierem, injeta automaticamente nas **Observacoes internas** do contrato (nao aparece no PDF).
+
+### Acordo de renegociacao (Inadimplentes)
+
+Na tela `/inadimplentes01`, botao "Acordo" abre `src/components/popup-acordo.tsx` (modal). Usuario seleciona parcelas via checkbox, clica "Continuar para simulacao" e vai para `/simulacao?agreement=1&contractId=X&installmentIds=a,b,c&valor=Y`.
+
+Em modo `agreement`, a tela de simulacao mostra botao "Efetivar Acordo" que chama a RPC **`create_renegotiation_agreement`** (ver `src/lib/supabase/installments.ts:createAgreement`). A RPC:
+1. Marca parcelas selecionadas como `status_id = RENEGOTIATED (6)`
+2. Insere novas parcelas no MESMO contrato com `origin_id = RENEGOTIATION (2)`, continuando a numeracao
+3. Reabre contrato se estava fechado
+4. Recalcula `outstanding_balance` do cliente
+
+Nao existe tabela `agreements` separada -- historico fica nas proprias parcelas. Status/origin em `src/types/enums.ts`.
+
+### Baixa de parcela (pagamento)
+
+Componente central: `src/components/popup-quitacao.tsx`. Usa RPC `record_payment` que:
+- Insere linha em `installment_payments`
+- Atualiza `status_id` da parcela (OPEN -> PARTIAL/PAID)
+- Fecha o contrato se todas as parcelas ativas estiverem pagas
+- Recalcula `outstanding_balance` do cliente
+
+Pontos de entrada (atalhos) do modal:
+- `/detalhes-contrato/[id]` -- coluna "Acao" da tabela de parcelas (botao por parcela com saldo > 0)
+- `/extrato-financeiro` -- botao "Pagar parcela" em cada linha da tabela de contratos ativos + botao "Registrar pagamento" nas movimentacoes tipo `installment`
+- `/extrato-financeiro/movimentacoes` -- botao "Registrar pagamento" em cada movimentacao tipo `installment`
+- `/contratos` (listagem) -- botao "Quitar"
+
+### Inadimplencia
+
+E automatica: `getOverdueInstallments` em `src/lib/supabase/installments.ts` busca parcelas com `due_date < hoje AND amount_paid < amount AND deleted_at IS NULL`. Agrupadas por contrato em `inadimplentes01/page.tsx`. Bucket `90+` dias marca "Ag. Citacao"; menores marcam "Acordo". Nao existe cadastro manual de inadimplente -- se precisa cadastrar uma divida avulsa, botao "Nova divida avulsa" leva para `/novo-contrato`.
+
+## Migrations de referencia (criadas em 2026-04-22)
+
+- `20260422000000_rpc_create_renegotiation_agreement.sql` -- RPC do acordo
+- `20260422000001_customers_rg_birthplace_system_code.sql` -- 3 colunas novas em `customers` (rg, birthplace, system_code) + RPC `recalculate_customer_balance(customer_id, company_id)`
+- `20260422000002_recalculate_all_customer_balances.sql` -- UPDATE em massa idempotente para reconciliar `outstanding_balance` legado. Seguro rodar de novo.
+
+**Atencao:** a RPC `get_customers` (definida no Dashboard Supabase, nao versionada neste repo) **nao retorna** as colunas novas `rg`, `birthplace`, `system_code`. O modal de detalhes contorna via `getCustomerById` (select direto). Se precisar expor na listagem, editar a RPC no Dashboard.
 
 ## Dados de exemplo (seed)
 

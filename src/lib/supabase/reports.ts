@@ -575,6 +575,10 @@ export type RecentMovement = {
   amount: number
   /** Data ISO para ordenação */
   date: string
+  /** contract_id relacionado (quando aplicável: payment, installment, new_contract). */
+  contractId?: string | null
+  /** installment_id específico (quando type = installment ou payment). */
+  installmentId?: string | null
 }
 
 /**
@@ -681,6 +685,8 @@ export async function getRecentMovements(
       subtitle: `Cliente: ${name}`,
       amount: Number(p.paid_amount),
       date: (p.paid_at as string) ?? (p.created_at as string),
+      contractId: (inst?.contract_id as string) ?? null,
+      installmentId: ((p.contract_installments as { id?: string })?.id as string | undefined) ?? null,
     })
   }
 
@@ -712,6 +718,8 @@ export async function getRecentMovements(
       subtitle: `Vencimento: ${formatDateShort(i.due_date as string)}\nCliente: ${name}`,
       amount: Number(i.amount) - Number(i.amount_paid),
       date: i.due_date as string,
+      contractId: (i.contract_id as string) ?? null,
+      installmentId: (i.id as string) ?? null,
     })
   }
 
@@ -728,6 +736,7 @@ export async function getRecentMovements(
       subtitle: `Contrato${contractNumber ? ` #${contractNumber}` : ''} - ${name}`,
       amount: Number(c.total_amount ?? 0),
       date: c.created_at as string,
+      contractId: (c.id as string) ?? null,
     })
   }
 
@@ -950,6 +959,7 @@ contracts (
       subtitle: `Cliente: ${name}`,
       amount: Number(p.paid_amount),
       date: (p.paid_at as string) ?? (p.created_at as string),
+      contractId: (inst?.contract_id as string) ?? null,
     })
   }
 
@@ -978,6 +988,8 @@ contracts (
       subtitle: `Vencimento: ${formatDateShort(i.due_date as string)}\nCliente: ${name}`,
       amount: Number(i.amount) - Number(i.amount_paid),
       date: i.due_date as string,
+      contractId: (i.contract_id as string) ?? null,
+      installmentId: (i.id as string) ?? null,
     })
   }
 
@@ -993,6 +1005,7 @@ contracts (
       subtitle: `Contrato${contractNumber ? ` #${contractNumber}` : ''} - ${name}`,
       amount: Number(c.total_amount ?? 0),
       date: c.created_at as string,
+      contractId: (c.id as string) ?? null,
     })
   }
 

@@ -35,6 +35,8 @@ function NovoContratoContent() {
   const parcelasParam = searchParams.get('parcelas')
   const taxaParam = searchParams.get('taxa')
   const firstDueDateParam = searchParams.get('firstDueDate')
+  const principalParam = searchParams.get('principal')
+  const taxaSimuladaParam = searchParams.get('taxaSimulada')
   const { setTitle, setBreadcrumb } = useHeader()
   const { companyId } = useCompanyId()
   const [initialCustomer, setInitialCustomer] = useState<CustomerAutocompleteItem | null>(null)
@@ -72,8 +74,30 @@ function NovoContratoContent() {
       base.first_due_date = firstDueDateParam.trim()
       changed = true
     }
+    // Se veio da simulação com principal/taxa originais, registra nas
+    // observações internas como trilha de auditoria (não aparece no PDF).
+    if (principalParam || taxaSimuladaParam) {
+      const fmtPrincipal = principalParam
+        ? Number(principalParam.replace(',', '.')).toLocaleString('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+          })
+        : null
+      const trailParts = ['Gerado a partir de simulação:']
+      if (fmtPrincipal) trailParts.push(`principal ${fmtPrincipal}`)
+      if (taxaSimuladaParam) trailParts.push(`juros ${taxaSimuladaParam}% a.m.`)
+      base.notes = trailParts.join(' — ')
+      changed = true
+    }
     return changed ? base : undefined
-  }, [valorParam, parcelasParam, taxaParam, firstDueDateParam])
+  }, [
+    valorParam,
+    parcelasParam,
+    taxaParam,
+    firstDueDateParam,
+    principalParam,
+    taxaSimuladaParam,
+  ])
 
   useEffect(() => {
     if (!customerIdParam || !companyId) {

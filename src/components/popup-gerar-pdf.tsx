@@ -43,7 +43,7 @@ export function PopupGerarPdf({ open, onClose, contractId }: PopupGerarPdfProps)
 
       const installments = await getInstallmentsByContract(contractId)
 
-      generateContractPdf({ contract, customer, address, installments })
+      await generateContractPdf({ contract, customer, address, installments })
       onClose()
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao gerar PDF.'

@@ -137,3 +137,88 @@ export async function cancelInstallment(
 
   if (error) throw error
 }
+
+// ──────────────────────────── Renegotiation agreement ────────────
+
+export type NewAgreementInstallment = {
+  due_date: string
+  amount: number
+}
+
+export type CreateAgreementInput = {
+  companyId: string
+  contractId: string
+  originalInstallmentIds: string[]
+  newInstallments: NewAgreementInstallment[]
+  notes?: string | null
+}
+
+export type CreateAgreementResult = {
+  contract_id: string
+  renegotiated_ids: string[]
+  new_installment_ids: string[]
+  new_count: number
+}
+
+/**
+ * Cria um acordo de renegociação: marca as parcelas originais como RENEGOTIATED
+ * e insere novas parcelas com origin=RENEGOTIATION no mesmo contrato.
+ * Recalcula o saldo devedor do cliente.
+ */
+export async function createAgreement(
+  input: CreateAgreementInput
+): Promise<CreateAgreementResult> {
+  const supabase = createClient()
+  const { data, error } = await supabase.rpc('create_renegotiation_agreement', {
+    p_company_id: input.companyId,
+    p_contract_id: input.contractId,
+    p_original_installment_ids: input.originalInstallmentIds,
+    p_new_installments: input.newInstallments,
+    p_notes: input.notes ?? null,
+  })
+
+  if (error) throw new Error(error.message)
+  return data as CreateAgreementResult
+}
+
+// ──────────────────────────── Overdue by contract ────────────────
+
+/**
+ * Retorna parcelas em aberto/atraso/parcial de UM contrato — base para o
+ * modal de acordo. Não filtra por due_date (o usuário pode incluir parcelas
+ * a vencer também, se for o caso de quitação antecipada).
+ */
+export async function getOpenInstallmentsByContract(
+  contractId: string,
+  companyId: string
+): Promise<OverdueInstallmentRow[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('contract_installments')
+    .select(
+      `
+      id,
+      contract_id,
+      company_id,
+      installment_number,
+      due_date,
+      amount,
+      amount_paid,
+      paid_at,
+      status_id,
+      notes
+    `
+    )
+    .eq('contract_id', contractId)
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+    .in('status_id', [
+      INSTALLMENT_STATUS.OPEN,
+      INSTALLMENT_STATUS.PARTIAL,
+      INSTALLMENT_STATUS.OVERDUE,
+    ])
+    .order('installment_number', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as unknown as OverdueInstallmentRow[]
+}

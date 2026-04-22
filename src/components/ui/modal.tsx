@@ -10,9 +10,18 @@ export interface ModalProps {
   children: React.ReactNode
   /** Conteúdo do rodapé (ex.: botões) */
   footer?: React.ReactNode
+  /** Largura máxima. Padrão 'md' (600px). */
+  size?: 'sm' | 'md' | 'lg' | 'xl'
 }
 
-export function Modal({ open, onClose, title, children, footer }: ModalProps) {
+const SIZE_CLASSES: Record<NonNullable<ModalProps['size']>, string> = {
+  sm: 'max-w-[420px]',
+  md: 'max-w-[600px]',
+  lg: 'max-w-[800px]',
+  xl: 'max-w-[1000px]',
+}
+
+export function Modal({ open, onClose, title, children, footer, size = 'md' }: ModalProps) {
   const overlayRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
@@ -45,7 +54,7 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
       onClick={handleOverlayClick}
     >
       <div
-        className="max-h-[90vh] w-full max-w-[600px] overflow-hidden rounded-[8px] bg-white shadow-xl"
+        className={`max-h-[90vh] w-full overflow-hidden rounded-[8px] bg-white shadow-xl ${SIZE_CLASSES[size]}`}
         onClick={(e) => e.stopPropagation()}
       >
         {title && (

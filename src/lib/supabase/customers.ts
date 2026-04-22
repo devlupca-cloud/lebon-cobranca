@@ -251,14 +251,17 @@ export type InsertCustomerInput = {
   trade_name?: string | null
   cpf?: string | null
   cnpj?: string | null
+  rg?: string | null
   state_registration?: string | null
   email?: string | null
   phone?: string | null
   mobile?: string | null
   birth_date?: string | null
+  birthplace?: string | null
   occupation?: string | null
   referral?: string | null
   customer_code?: string | null
+  system_code?: string | null
   credit_limit?: number | null
   outstanding_balance?: number | null
   marital_status_id?: number | null
@@ -312,6 +315,7 @@ export async function insertCustomer(
     status_id: customer.status_id,
     cpf: customer.cpf ?? null,
     cnpj: customer.cnpj ?? null,
+    rg: customer.rg ?? null,
     legal_name: customer.legal_name ?? null,
     trade_name: customer.trade_name ?? null,
     full_name: customer.full_name ?? null,
@@ -320,9 +324,11 @@ export async function insertCustomer(
     mobile: customer.mobile ?? null,
     email: customer.email ?? null,
     birth_date: customer.birth_date ?? null,
+    birthplace: customer.birthplace ?? null,
     occupation: customer.occupation ?? null,
     referral: customer.referral ?? null,
     customer_code: customer.customer_code ?? null,
+    system_code: customer.system_code ?? null,
     credit_limit: customer.credit_limit ?? null,
     outstanding_balance: customer.outstanding_balance ?? null,
     marital_status_id: customer.marital_status_id ?? null,
@@ -388,6 +394,7 @@ export async function updateCustomer(
     status_id: data.status_id ?? existing.status_id,
     cpf: data.cpf !== undefined ? data.cpf : existing.cpf,
     cnpj: data.cnpj !== undefined ? data.cnpj : existing.cnpj,
+    rg: data.rg !== undefined ? data.rg : existing.rg,
     legal_name: data.legal_name !== undefined ? data.legal_name : existing.legal_name,
     trade_name: data.trade_name !== undefined ? data.trade_name : existing.trade_name,
     full_name: data.full_name !== undefined ? data.full_name : existing.full_name,
@@ -396,9 +403,11 @@ export async function updateCustomer(
     mobile: data.mobile !== undefined ? data.mobile : existing.mobile,
     email: data.email !== undefined ? data.email : existing.email,
     birth_date: data.birth_date !== undefined ? data.birth_date : existing.birth_date,
+    birthplace: data.birthplace !== undefined ? data.birthplace : existing.birthplace,
     occupation: data.occupation !== undefined ? data.occupation : existing.occupation,
     referral: data.referral !== undefined ? data.referral : existing.referral,
     customer_code: data.customer_code !== undefined ? data.customer_code : existing.customer_code,
+    system_code: data.system_code !== undefined ? data.system_code : existing.system_code,
     credit_limit: data.credit_limit !== undefined ? data.credit_limit : existing.credit_limit,
     outstanding_balance: data.outstanding_balance !== undefined ? data.outstanding_balance : existing.outstanding_balance,
     marital_status_id: data.marital_status_id !== undefined ? data.marital_status_id : existing.marital_status_id,

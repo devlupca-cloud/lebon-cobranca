@@ -1,6 +1,7 @@
 'use client'
 
 import { LoadingScreen } from '@/components/ui'
+import { PopupAcordo } from '@/components/popup-acordo'
 import { useHeader } from '@/contexts/header-context'
 import { useCompanyId } from '@/hooks/use-company-id'
 import { getOverdueInstallments } from '@/lib/supabase/installments'
@@ -9,7 +10,7 @@ import { buttonPrimary, buttonSecondary, card, input, label as labelClass } from
 import { formatCPFOrCNPJ } from '@/lib/format'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { MdDescription, MdSearch, MdWarning } from 'react-icons/md'
+import { MdAdd, MdDescription, MdSearch, MdWarning } from 'react-icons/md'
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', {
@@ -144,6 +145,7 @@ export default function InadimplentesPage() {
   const [search, setSearch] = useState('')
   const [filterSituacao, setFilterSituacao] = useState('')
   const [filterData, setFilterData] = useState('')
+  const [acordoTarget, setAcordoTarget] = useState<ContractOverdueCard | null>(null)
 
   useEffect(() => {
     setTitle('Inadimplentes')
@@ -346,7 +348,17 @@ export default function InadimplentesPage() {
       </div>
 
       {/* Lista de inadimplentes em cards */}
-      <h3 className="mb-4 font-semibold text-[#14181B]">Lista de Inadimplentes</h3>
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="font-semibold text-[#14181B]">Lista de Inadimplentes</h3>
+        <Link
+          href="/novo-contrato?origin=inadimplente"
+          className={buttonSecondary + ' inline-flex items-center gap-1'}
+          title="Cadastrar contrato de cobrança para um cliente sem vínculo anterior"
+        >
+          <MdAdd className="h-4 w-4" aria-hidden />
+          Nova dívida avulsa
+        </Link>
+      </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -394,12 +406,13 @@ export default function InadimplentesPage() {
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap gap-2 border-t border-[#E0E3E7] pt-4">
-                <Link
-                  href={`/detalhes-contrato/${c.contractId}`}
+                <button
+                  type="button"
+                  onClick={() => setAcordoTarget(c)}
                   className={buttonPrimary}
                 >
                   {c.maxDaysOverdue >= 90 ? 'Acordo' : 'Renegociar'}
-                </Link>
+                </button>
                 <Link
                   href={`/detalhes-contrato/${c.contractId}`}
                   className={buttonSecondary}
@@ -417,6 +430,14 @@ export default function InadimplentesPage() {
           ))}
         </ul>
       )}
+
+      <PopupAcordo
+        open={!!acordoTarget}
+        onClose={() => setAcordoTarget(null)}
+        contractId={acordoTarget?.contractId ?? null}
+        contractNumber={acordoTarget?.contractNumber ?? null}
+        customerName={acordoTarget?.customerName ?? ''}
+      />
     </div>
   )
 }

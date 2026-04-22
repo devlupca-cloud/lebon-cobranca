@@ -30,22 +30,25 @@ Arquivo `.env.local` (nao commitar) com:
 
 `src/middleware.ts` intercepta todas as rotas:
 - Usuarios nao autenticados sao redirecionados para `/login`
-- Usuarios autenticados em rotas de auth (`/login`, `/cadastre-se`) vao para `/home`
+- Usuarios autenticados em rotas de auth (`/login`, `/cadastre-se`, `/esqueci-senha`) vao para `/home`
 - Rota `/` redireciona conforme estado de autenticacao
+- `?code=` na URL: middleware troca o code por sessao (`exchangeCodeForSession`) e redireciona para `/redefinir-senha` (password recovery) ou `/login` com erro
+- `/redefinir-senha` so acessivel se autenticado (vindo do fluxo de recovery)
 - Supabase auth via `@supabase/ssr` com cookies
 
 ### Multi-tenancy
 
 Todo acesso a dados filtra por `company_id`. A tabela `company_users` mapeia usuarios a empresas.
-- **Client components:** `useCompanyId()` hook (de `src/hooks/use-company-id.ts`)
-- **Server/effects:** `getCompanyId()` (de `src/lib/supabase/`)
+- **Client components:** `useCompanyId()` hook (de `src/hooks/use-company-id.ts`) -- dentro do dashboard usa o `DashboardAuthContext` (sem chamada extra); fora do dashboard faz fallback para `getCompanyId()`
+- **Server/effects:** `getCompanyId()` (de `src/lib/supabase/company`)
 - Nunca hardcodar `company_id`
 
 ### Estrutura de rotas
 
-- `src/app/(auth)/` -- login, cadastro (layout sem sidebar)
+- `src/app/(auth)/` -- login, cadastre-se, esqueci-senha, redefinir-senha (layout sem sidebar)
 - `src/app/(dashboard)/` -- paginas internas (layout com Sidebar + Header)
-- Rotas em portugues, kebab-case (ex: `fluxo-de-caixa`, `gerar-documentos`)
+- `src/app/auth/callback/` -- callback do OAuth/magic link
+- **Novas rotas:** sempre kebab-case em portugues (ex: `fluxo-de-caixa`, `gerar-documentos`). Algumas rotas ja migradas tem sufixos numericos ou nomes colados (`profile06`, `inadimplentes01`, `gerardocumentosnovo`) -- sao resquicios do FlutterFlow; nao replicar esse padrao em codigo novo.
 
 ### Camada de dados
 
@@ -56,7 +59,16 @@ Funcoes em `src/lib/supabase/` (um arquivo por dominio: `customers.ts`, `contrac
 - Erros: `throw new Error(error.message)` -- front trata com try/catch
 - Soft delete: setar `deleted_at`, nunca deletar de verdade
 - RPCs: `supabase.rpc('nome', { params })` -- ex: `get_my_profile` em `company.ts`
+- **Paginacao:** funcoes de listagem aceitam `limit`/`offset`; no front usar `TablePagination` de `@/components/ui`
 - PDF: `jspdf` disponivel para geracao de documentos
+
+### Outras libs utilitarias (`src/lib/`)
+
+- `auth.ts` -- helpers de autenticacao Supabase
+- `format.ts` -- CPF, CNPJ, moeda, datas, telefone (sempre reutilizar, nunca reimplementar)
+- `viacep.ts` -- integracao ViaCEP para preenchimento automatico de endereco
+- `simulacao.ts` -- logica da tela de simulacao de emprestimo
+- `pdf/` -- templates `jspdf` para geracao de documentos
 
 ### Design system
 
@@ -88,6 +100,8 @@ Regras detalhadas em `.claude/rules/` sao ativadas automaticamente pelos paths d
 
 Invocacao explicita: "como agente front, migra essa tela" ou "como back, cria a funcao de listagem".
 
+As regras em `.cursor/rules/` (`design-system.mdc`, `use-libraries.mdc`) sao o espelho para o editor Cursor/Antigravity -- mesmos principios, formato `.mdc`. Nao editar um sem sincronizar o outro se a regra for a mesma.
+
 ## Workflow de migracao (FlutterFlow -> React)
 
 1. **Entender a tela original** -- campos, acoes, navegacao, dados consumidos
@@ -117,4 +131,5 @@ Login, cadastro, home, clientes (listagem/cadastro/edicao/detalhes), contratos (
 - **Sem `any`:** Tipos explicitos sempre (tipos em `src/types/database.ts`)
 - **Design tokens:** Nunca hardcodar Tailwind para algo que tem constante em `design.ts`
 - **Bibliotecas:** Priorizar libs prontas (`react-icons`, `jspdf`, formatacao, validacao) em vez de reimplementar
-- **Componentes compartilhados:** Formularios reutilizaveis em `src/components/` (`cliente-form.tsx`, `contrato-form.tsx`), popups (`popup-*.tsx`), UI primitivos em `src/components/ui/` (`button`, `input`, `modal`, `confirm-modal`, `loading`, `table-pagination`)
+- **Componentes compartilhados:** Formularios reutilizaveis em `src/components/` (`cliente-form.tsx`, `contrato-form.tsx`), popups (`popup-*.tsx`), UI primitivos em `src/components/ui/` com barrel export: `import { Button, Input, Modal, ConfirmModal, Loading, LoadingScreen, TablePagination } from '@/components/ui'`
+- **Testes:** o projeto **ainda nao tem** testes automatizados. Stack definida para quando forem adicionados: **Vitest + React Testing Library** (ver `.claude/rules/qa.md`). Nao introduzir outra stack de teste sem alinhar com o usuario.

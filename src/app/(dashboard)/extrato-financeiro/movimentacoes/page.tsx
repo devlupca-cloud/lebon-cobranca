@@ -13,7 +13,9 @@ import {
   MdArrowUpward,
   MdSearch,
   MdFilterList,
+  MdPayment,
 } from 'react-icons/md'
+import { PopupQuitacao } from '@/components/popup-quitacao'
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', {
@@ -89,6 +91,7 @@ export default function MovimentacoesPage() {
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+  const [paymentContractId, setPaymentContractId] = useState<string | null>(null)
 
   // Filtros
   const [filterType, setFilterType] = useState<MovementType | ''>('')
@@ -295,6 +298,7 @@ export default function MovimentacoesPage() {
               {movements.map((mov) => {
                 const config = MOVEMENT_CONFIG[mov.type]
                 const IconComponent = config.Icon
+                const canPay = mov.type === 'installment' && !!mov.contractId
                 return (
                   <div key={mov.id} className="flex items-start gap-4 py-4 first:pt-0 last:pb-0">
                     <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${config.iconClass}`}>
@@ -311,9 +315,22 @@ export default function MovimentacoesPage() {
                       </p>
                     </div>
 
-                    <p className={`shrink-0 text-sm font-semibold ${config.amountClass}`}>
-                      {config.prefix}{formatCurrency(mov.amount)}
-                    </p>
+                    <div className="flex shrink-0 flex-col items-end gap-2">
+                      <p className={`text-sm font-semibold ${config.amountClass}`}>
+                        {config.prefix}{formatCurrency(mov.amount)}
+                      </p>
+                      {canPay && (
+                        <button
+                          type="button"
+                          onClick={() => setPaymentContractId(mov.contractId!)}
+                          className="inline-flex items-center gap-1 rounded-[8px] border border-[#1E3A8A] bg-white px-2 py-1 text-xs font-medium text-[#1E3A8A] transition-colors hover:bg-[#1E3A8A] hover:text-white"
+                          title="Registrar pagamento desta parcela"
+                        >
+                          <MdPayment className="h-3.5 w-3.5" />
+                          Registrar pagamento
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )
               })}
@@ -335,6 +352,17 @@ export default function MovimentacoesPage() {
           />
         </>
       )}
+
+      <PopupQuitacao
+        open={!!paymentContractId}
+        onClose={() => setPaymentContractId(null)}
+        contractId={paymentContractId}
+        companyId={companyId}
+        onSuccess={() => {
+          setPaymentContractId(null)
+          fetchData()
+        }}
+      />
     </div>
   )
 }

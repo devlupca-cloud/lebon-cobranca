@@ -25,6 +25,12 @@ export type Customer = {
   status_id: number
   marital_status_id: number | null
   person_type: string
+  /** Documento RG (pessoa física). */
+  rg: string | null
+  /** Naturalidade (cidade/estado de nascimento). */
+  birthplace: string | null
+  /** Código interno do sistema, distinto de customer_code (código comercial). */
+  system_code: string | null
 }
 
 /** Resposta da API get_customers (RPC) */

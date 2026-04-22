@@ -20,7 +20,9 @@ import {
   MdAccountBalanceWallet,
   MdArrowDownward,
   MdArrowUpward,
+  MdPayment,
 } from 'react-icons/md'
+import { PopupQuitacao } from '@/components/popup-quitacao'
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', {
@@ -101,6 +103,7 @@ export default function ExtratoFinanceiroPage() {
   const [error, setError] = useState<string | null>(null)
   const [searchInput, setSearchInput] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
+  const [paymentContractId, setPaymentContractId] = useState<string | null>(null)
 
   useEffect(() => {
     setTitle('Extrato Financeiro')
@@ -118,9 +121,11 @@ export default function ExtratoFinanceiroPage() {
     try {
       const [extratoData, contractsData, movementsData] = await Promise.all([
         getExtratoFinanceiroData(companyId),
+        // Pega ACTIVE e DRAFT: ambos precisam ficar visíveis no extrato — DRAFT
+        // com badge "Rascunho" para o usuário saber que falta ativar e gerar parcelas.
         getContractsFiltered({
           companyId,
-          statusId: CONTRACT_STATUS.ACTIVE,
+          statusId: null,
           customerName: searchTerm || null,
           limit: 50,
         }),
@@ -161,7 +166,11 @@ export default function ExtratoFinanceiroPage() {
     )
   }
 
-  const contractsList = contracts?.data ?? []
+  const contractsList = (contracts?.data ?? []).filter(
+    (c) =>
+      c.status_id === CONTRACT_STATUS.ACTIVE ||
+      c.status_id === CONTRACT_STATUS.DRAFT
+  )
   const totalContractAmount = contractsList.reduce(
     (sum, c) => sum + Number(c.total_amount ?? 0), 0
   )
@@ -294,34 +303,47 @@ export default function ExtratoFinanceiroPage() {
                       </td>
                     </tr>
                   ) : (
-                    contractsList.map((contract) => (
-                      <tr key={contract.id} className="border-t border-[#e5e7eb]">
-                        <td className={tableCell + ' font-medium'}>
-                          {getCustomerName(contract)}
-                        </td>
-                        <td className={tableCell}>
-                          {formatCurrency(Number(contract.total_amount ?? 0))}
-                        </td>
-                        <td className={tableCell}>
-                          {contract.installments_count ?? '—'}
-                        </td>
-                        <td className={tableCell}>
-                          {contract.installment_amount
-                            ? `${formatCurrency(Number(contract.installment_amount))} - ${formatDate(contract.first_due_date)}`
-                            : '—'}
-                        </td>
-                        <td className={tableCell}>
-                          <button
-                            type="button"
-                            onClick={() => router.push(`/contratos/${contract.id}`)}
-                            className="rounded-[8px] p-1.5 text-[#536471] transition hover:bg-[#f8fafc] hover:text-[#1E3A8A]"
-                            title="Ver contrato"
-                          >
-                            <MdVisibility className="h-5 w-5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
+                    contractsList.map((contract) => {
+                      const isDraft = contract.status_id === CONTRACT_STATUS.DRAFT
+                      return (
+                        <tr key={contract.id} className="border-t border-[#e5e7eb]">
+                          <td className={tableCell + ' font-medium'}>
+                            <div className="flex flex-wrap items-center gap-2">
+                              {getCustomerName(contract)}
+                              {isDraft && (
+                                <span
+                                  className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700"
+                                  title="Contrato em rascunho: parcelas ainda não foram geradas"
+                                >
+                                  Rascunho
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className={tableCell}>
+                            {formatCurrency(Number(contract.total_amount ?? 0))}
+                          </td>
+                          <td className={tableCell}>
+                            {contract.installments_count ?? '—'}
+                          </td>
+                          <td className={tableCell}>
+                            {contract.installment_amount
+                              ? `${formatCurrency(Number(contract.installment_amount))} - ${formatDate(contract.first_due_date)}`
+                              : '—'}
+                          </td>
+                          <td className={tableCell}>
+                            <button
+                              type="button"
+                              onClick={() => router.push(`/detalhes-contrato/${contract.id}`)}
+                              className="rounded-[8px] p-1.5 text-[#536471] transition hover:bg-[#f8fafc] hover:text-[#1E3A8A]"
+                              title="Ver detalhes do contrato"
+                            >
+                              <MdVisibility className="h-5 w-5" />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })
                   )}
                 </tbody>
                 {contractsList.length > 0 && (
@@ -365,6 +387,7 @@ export default function ExtratoFinanceiroPage() {
                 {visibleMovements.map((mov) => {
                   const config = MOVEMENT_CONFIG[mov.type]
                   const IconComponent = config.Icon
+                  const canPay = mov.type === 'installment' && !!mov.contractId
                   return (
                     <div key={mov.id} className="flex items-start gap-4 py-4 first:pt-0 last:pb-0">
                       {/* Ícone */}
@@ -383,10 +406,23 @@ export default function ExtratoFinanceiroPage() {
                         </p>
                       </div>
 
-                      {/* Valor */}
-                      <p className={`shrink-0 text-sm font-semibold ${config.amountClass}`}>
-                        {config.prefix}{formatCurrency(mov.amount)}
-                      </p>
+                      {/* Valor + ação */}
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        <p className={`text-sm font-semibold ${config.amountClass}`}>
+                          {config.prefix}{formatCurrency(mov.amount)}
+                        </p>
+                        {canPay && (
+                          <button
+                            type="button"
+                            onClick={() => setPaymentContractId(mov.contractId!)}
+                            className="inline-flex items-center gap-1 rounded-[8px] border border-[#1E3A8A] bg-white px-2 py-1 text-xs font-medium text-[#1E3A8A] transition-colors hover:bg-[#1E3A8A] hover:text-white"
+                            title="Registrar pagamento desta parcela"
+                          >
+                            <MdPayment className="h-3.5 w-3.5" />
+                            Registrar pagamento
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )
                 })}
@@ -395,6 +431,17 @@ export default function ExtratoFinanceiroPage() {
           </div>
         </>
       )}
+
+      <PopupQuitacao
+        open={!!paymentContractId}
+        onClose={() => setPaymentContractId(null)}
+        contractId={paymentContractId}
+        companyId={companyId}
+        onSuccess={() => {
+          setPaymentContractId(null)
+          fetchData()
+        }}
+      />
     </div>
   )
 }

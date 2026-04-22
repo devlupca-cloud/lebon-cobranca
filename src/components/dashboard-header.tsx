@@ -5,10 +5,40 @@ import { useHeader } from '@/contexts/header-context'
 import { signOut } from '@/lib/auth'
 import type { Profile } from '@/lib/supabase/company'
 import { getRecentActivity, type ActivityItem } from '@/lib/supabase/activity'
-import { useRouter } from 'next/navigation'
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { MdNotifications, MdExpandMore, MdLogout, MdAccountCircle, MdSettings, MdChevronRight } from 'react-icons/md'
+import { usePathname, useRouter } from 'next/navigation'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import {
+  MdArrowBack,
+  MdNotifications,
+  MdExpandMore,
+  MdLogout,
+  MdAccountCircle,
+  MdSettings,
+  MdChevronRight,
+} from 'react-icons/md'
 import Link from 'next/link'
+
+/**
+ * Mapa de rotas "filhas" → rota do módulo pai. Usado como fallback quando o
+ * breadcrumb da página não foi preenchido ou é raso demais para inferir.
+ * Prefere sempre o breadcrumb quando disponível.
+ */
+const BACK_FALLBACK: Array<{ prefix: string; parent: string; label: string }> = [
+  { prefix: '/detalhes-contrato', parent: '/contratos', label: 'Contratos' },
+  { prefix: '/editar-contrato', parent: '/contratos', label: 'Contratos' },
+  { prefix: '/novo-contrato', parent: '/contratos', label: 'Contratos' },
+  { prefix: '/detalhes-clientes', parent: '/clientes', label: 'Clientes' },
+  { prefix: '/editar-cliente', parent: '/clientes', label: 'Clientes' },
+  { prefix: '/cadastrar-cliente', parent: '/clientes', label: 'Clientes' },
+  { prefix: '/simulacao', parent: '/contratos', label: 'Contratos' },
+  { prefix: '/cadastrar-fluxo-de-caixa', parent: '/fluxo-caixa', label: 'Fluxo de Caixa' },
+  { prefix: '/cadastrar-acesso', parent: '/configuracoes', label: 'Configurações' },
+  { prefix: '/base-de-calculo', parent: '/contratos', label: 'Contratos' },
+  { prefix: '/financiamento', parent: '/contratos', label: 'Contratos' },
+  { prefix: '/xeque-financiamento', parent: '/contratos', label: 'Contratos' },
+  { prefix: '/gerardocumentosnovo', parent: '/contratos', label: 'Contratos' },
+  { prefix: '/cadastro-geral', parent: '/home', label: 'Início' },
+]
 
 function formatActivityDate(dateStr: string): string {
   if (!dateStr || typeof dateStr !== 'string') return '—'
@@ -43,8 +73,31 @@ function getInitials(profile: Profile | null, authEmail: string | null): string 
 
 export function DashboardHeader() {
   const router = useRouter()
+  const pathname = usePathname()
   const { leftContent, title, breadcrumb } = useHeader()
   const { user, profile } = useDashboardAuth()
+
+  /**
+   * Destino do botão "Voltar": prioriza o penúltimo item do breadcrumb que
+   * tenha href (padrão seguido pelas páginas internas). Se não encontrar,
+   * usa o mapa de fallback com base no pathname atual.
+   */
+  const backDestination = useMemo(() => {
+    if (breadcrumb.length >= 3) {
+      for (let i = breadcrumb.length - 2; i >= 0; i--) {
+        const item = breadcrumb[i]
+        if (item.href) return { href: item.href, label: item.label }
+      }
+    }
+    if (pathname) {
+      for (const { prefix, parent, label } of BACK_FALLBACK) {
+        if (pathname === prefix || pathname.startsWith(prefix + '/')) {
+          return { href: parent, label }
+        }
+      }
+    }
+    return null
+  }, [breadcrumb, pathname])
   const [showDropdown, setShowDropdown] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [activity, setActivity] = useState<ActivityItem[]>([])
@@ -108,6 +161,17 @@ export function DashboardHeader() {
     <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-[#E0E3E7] bg-white px-6 shadow-sm">
       {/* Lado esquerdo - Conteúdo dinâmico por página */}
       <div className="flex items-center gap-3 min-w-0 flex-1">
+        {backDestination && (
+          <button
+            type="button"
+            onClick={() => router.push(backDestination.href)}
+            title={`Voltar para ${backDestination.label}`}
+            aria-label={`Voltar para ${backDestination.label}`}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] text-[#57636C] transition-colors hover:bg-[#f1f4f8] hover:text-[#1E3A8A]"
+          >
+            <MdArrowBack className="h-5 w-5" />
+          </button>
+        )}
         {leftContent ? (
           leftContent
         ) : (

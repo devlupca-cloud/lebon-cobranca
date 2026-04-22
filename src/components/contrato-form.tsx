@@ -2,17 +2,19 @@
 
 import { Button } from '@/components/ui'
 import { getCompanyId } from '@/lib/supabase/company'
-import { getCustomersAutocomplete, type CustomerAutocompleteItem } from '@/lib/supabase/customers'
+import { getCustomersAutocomplete, type CustomerAutocompleteItem, getCustomerById, getAddressById } from '@/lib/supabase/customers'
 import { formatCPF, formatCNPJ } from '@/lib/format'
-import { insertContract, updateContract, getNextContractNumber } from '@/lib/supabase/contracts'
+import { insertContract, updateContract, getNextContractNumber, getContractById, getInstallmentsByContract } from '@/lib/supabase/contracts'
 import { CONTRACT_STATUS, CONTRACT_CATEGORY, CONTRACT_TYPE } from '@/types/enums'
 import type { ContractWithRelations } from '@/types/database'
 import { pageTitle, pageSubtitle, label, input, card } from '@/lib/design'
+import { calcularParcela, formatCurrency } from '@/lib/simulacao'
+import { generateContractPdf } from '@/lib/pdf/contract-pdf'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { PopupSimulacao } from '@/components/popup-simulacao'
-import { MdDescription, MdSearch, MdSwapHoriz } from 'react-icons/md'
+import { MdDescription, MdPictureAsPdf, MdSearch, MdSwapHoriz } from 'react-icons/md'
 
 /** Nome para exibição (PF: full_name; PJ: legal_name/trade_name); usa qualquer campo preenchido. */
 function getCustomerDisplayName(c: CustomerAutocompleteItem | null): string {
@@ -74,7 +76,10 @@ export const initialContractForm: ContractFormState = {
   admin_fee_rate: '',
   interest_rate: '',
   valor_financiado: '',
-  status_id: CONTRACT_STATUS.DRAFT,
+  // Padrão "Ativo": ao salvar, gera as parcelas automaticamente e o contrato
+  // entra no extrato financeiro e no fluxo de inadimplentes. Usuário pode
+  // trocar para "Rascunho" se quiser salvar sem gerar parcelas.
+  status_id: CONTRACT_STATUS.ACTIVE,
   notes: '',
 }
 
@@ -359,6 +364,40 @@ export function ContratoForm({
   }
 
   const isEdit = mode === 'edit'
+
+  // Preview de parcelas calculadas em tempo real ("12 parcelas de R$ 396,00")
+  const parcelasPreview = useMemo(() => {
+    const valor = parseFloat((form.contract_amount || '').replace(',', '.')) || 0
+    const n = Math.max(1, parseInt(form.installments_count, 10) || 0) || 0
+    const taxa = parseFloat((form.interest_rate || '').replace(',', '.')) || 0
+    if (valor <= 0 || n <= 0) return null
+    const { parcela, total } = calcularParcela(valor, n, taxa)
+    return { count: n, parcela, total }
+  }, [form.contract_amount, form.installments_count, form.interest_rate])
+
+  // Geração de PDF direto do form (modo edit)
+  const [pdfLoading, setPdfLoading] = useState(false)
+  const [pdfError, setPdfError] = useState<string | null>(null)
+
+  const handleGeneratePdf = useCallback(async () => {
+    if (!isEdit || !contractId || !companyId) return
+    setPdfLoading(true)
+    setPdfError(null)
+    try {
+      const contract = await getContractById(contractId, companyId)
+      if (!contract) throw new Error('Contrato não encontrado.')
+      const customer = await getCustomerById(contract.customer_id)
+      if (!customer) throw new Error('Cliente não encontrado.')
+      const address = customer.address_id ? await getAddressById(customer.address_id) : null
+      const installments = await getInstallmentsByContract(contractId)
+      await generateContractPdf({ contract, customer, address, installments })
+    } catch (e) {
+      setPdfError(e instanceof Error ? e.message : 'Erro ao gerar PDF.')
+    } finally {
+      setPdfLoading(false)
+    }
+  }, [isEdit, contractId, companyId])
+
   const pageTitleText = isEdit ? 'Editar Contrato' : 'Novo Contrato de Confissão de Dívida'
   const pageSubtitleText = isEdit
     ? 'Atualize os dados do contrato'
@@ -704,9 +743,25 @@ export function ContratoForm({
                 />
               </div>
             </div>
-            <p className="text-xs text-[#57636C]">
-              O valor da parcela é calculado automaticamente (valor do contrato / parcelas, ou com juros se informados).
-            </p>
+            {parcelasPreview ? (
+              <div className="rounded-[8px] border border-blue-200 bg-blue-50 px-4 py-3">
+                <p className="text-sm font-medium text-[#0f1419]">
+                  <span className="text-[#1E3A8A]">{parcelasPreview.count} parcelas</span> de{' '}
+                  <span className="text-[#1E3A8A]">{formatCurrency(parcelasPreview.parcela)}</span>
+                </p>
+                <p className="mt-0.5 text-xs text-[#536471]">
+                  Valor total: {formatCurrency(parcelasPreview.total)}
+                  {parcelasPreview.total !== parcelasPreview.parcela * parcelasPreview.count
+                    ? ''
+                    : ''}
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-[#57636C]">
+                Preencha valor do contrato e número de parcelas para ver o cálculo automático.
+                Se houver taxa de juros, é aplicada na fórmula (PMT).
+              </p>
+            )}
             {!readOnly && (
               <Button
                 type="button"
@@ -714,7 +769,7 @@ export function ContratoForm({
                 onClick={() => setSimulacaoOpen(true)}
                 className="w-full sm:w-auto"
               >
-                Ver simulação de parcelas
+                Abrir simulação detalhada
               </Button>
             )}
           </div>
@@ -788,7 +843,7 @@ export function ContratoForm({
               </div>
             )}
             <div>
-              <label className={label}>Status</label>
+              <label className={label}>Status do contrato</label>
               <select
                 value={form.status_id}
                 onChange={(e) => setForm((f) => ({ ...f, status_id: Number(e.target.value) }))}
@@ -801,18 +856,32 @@ export function ContratoForm({
                   </option>
                 ))}
               </select>
-              <p className="mt-1 text-xs text-[#57636C]">
-                Ativo: parcelas são geradas ao salvar. Rascunho: pode editar depois.
-              </p>
+              <ul className="mt-2 space-y-1 text-xs text-[#57636C]">
+                <li>
+                  <strong className="text-[#0f1419]">Rascunho:</strong> contrato em preenchimento.
+                  Não gera parcelas no sistema e pode ser editado livremente. Útil enquanto o acordo
+                  com o cliente ainda está sendo negociado.
+                </li>
+                <li>
+                  <strong className="text-[#0f1419]">Ativo:</strong> contrato efetivado. Ao salvar,
+                  o sistema gera automaticamente as parcelas a partir do 1º vencimento e elas
+                  passam a aparecer no extrato financeiro.
+                </li>
+              </ul>
             </div>
           </div>
         </section>
 
-        {/* Card: Complemento (opcional) */}
+        {/* Card: Informações adicionais */}
         <section className={card + ' p-5 sm:p-6'}>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-[#57636C] mb-4">
-            Complemento <span className="font-normal normal-case text-[#57636C]">(opcional)</span>
+            Informações adicionais{' '}
+            <span className="font-normal normal-case text-[#57636C]">(opcional)</span>
           </h2>
+          <p className="mb-4 text-xs text-[#57636C]">
+            Campos que não afetam o cálculo do contrato, mas ficam registrados para consulta
+            interna (histórico do contrato, referência de cheque, recibo etc.).
+          </p>
           <div className="space-y-4">
             <div>
               <label className={label}>Valor de título</label>
@@ -828,20 +897,37 @@ export function ContratoForm({
                   disabled={isFieldDisabled('valor_titulo')}
                 />
               </div>
+              <p className="mt-1 text-xs text-[#57636C]">
+                Valor de face do título que originou a dívida (ex.: cheque, nota promissória,
+                duplicata). Informativo — não substitui o valor do contrato.
+              </p>
             </div>
             <div>
-              <label className={label}>Observações</label>
+              <label className={label}>Observações internas</label>
               <textarea
                 value={form.notes}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                 rows={3}
-                placeholder="Anotações sobre o contrato"
+                placeholder="Ex.: cliente pediu emissão em nome do cônjuge; entregou cópia do RG em 12/03."
                 className={input + ' min-h-[80px] resize-y'}
                 disabled={isFieldDisabled('notes')}
               />
+              <p className="mt-1 text-xs text-[#57636C]">
+                Anotações livres para a equipe — <strong>não</strong> aparecem no PDF do
+                contrato enviado ao cliente.
+              </p>
             </div>
           </div>
         </section>
+
+        {pdfError && (
+          <div
+            className="rounded-[8px] border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700"
+            role="alert"
+          >
+            {pdfError}
+          </div>
+        )}
 
         {/* Barra de ações */}
         {!readOnly && (
@@ -851,6 +937,18 @@ export function ContratoForm({
                 Voltar
               </Button>
             </Link>
+            {isEdit && contractId && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleGeneratePdf}
+                disabled={pdfLoading}
+                className="inline-flex items-center gap-2"
+              >
+                <MdPictureAsPdf className="h-4 w-4" aria-hidden />
+                {pdfLoading ? 'Gerando PDF...' : 'Gerar e baixar PDF'}
+              </Button>
+            )}
             <Button type="submit" disabled={loading}>
               {submitLabel}
             </Button>

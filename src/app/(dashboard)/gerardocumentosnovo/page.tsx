@@ -159,7 +159,7 @@ export default function GerarDocumentosPage() {
       if (selectedDocType === 'confissao') {
         const address = customer.address_id ? await getAddressById(customer.address_id) : null
         const installments = await getInstallmentsByContract(selectedContractId)
-        const result = generateContractPdf(
+        const result = await generateContractPdf(
           { contract, customer, address, installments },
           { returnBlob: true }
         )

@@ -245,6 +245,13 @@ export async function insertContract(
 
   if (contract.status_id === CONTRACT_STATUS.ACTIVE) {
     await generateInstallments(contract)
+    // Recalcula saldo devedor do cliente com as parcelas recém-criadas.
+    try {
+      const { updateCustomerBalance } = await import('./customers')
+      await updateCustomerBalance(contract.customer_id, contract.company_id)
+    } catch (e) {
+      console.error('[insertContract] Falha ao recalcular saldo do cliente:', e)
+    }
   }
 
   return contract
@@ -344,6 +351,14 @@ export async function activateContract(
     status_id: CONTRACT_STATUS.ACTIVE,
   })
   const installments = await generateInstallments(contract)
+  // Recalcula saldo devedor do cliente com as parcelas recém-criadas.
+  // Importado via require dinâmico pra evitar ciclo com customers.ts.
+  try {
+    const { updateCustomerBalance } = await import('./customers')
+    await updateCustomerBalance(contract.customer_id, companyId)
+  } catch (e) {
+    console.error('[activateContract] Falha ao recalcular saldo do cliente:', e)
+  }
   return { contract, installments }
 }
 

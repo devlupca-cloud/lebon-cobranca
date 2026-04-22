@@ -31,9 +31,9 @@ const MARITAL_STATUS_MAP: Record<number, string> = {
   1: 'Solteiro(a)',
   2: 'Casado(a)',
   3: 'Divorciado(a)',
-  4: 'Viuvo(a)',
+  4: 'Viúvo(a)',
   5: 'Separado(a)',
-  6: 'Uniao Estavel',
+  6: 'União Estável',
 }
 
 const PAGE_WIDTH = 210
@@ -41,12 +41,20 @@ const PAGE_HEIGHT = 297
 const MARGIN_LEFT = 20
 const MARGIN_RIGHT = 20
 const MARGIN_TOP = 15
-const MARGIN_BOTTOM = 30
+const MARGIN_BOTTOM = 32
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT
 const FOOTER_Y = PAGE_HEIGHT - 15
 
+// Marca d'água (logo Lebon Cobrança circular)
+const WATERMARK_SIZE = 110 // mm
+const WATERMARK_OPACITY = 0.12
+
+// Logo MO no rodapé
+const LOGO_MO_WIDTH = 22 // mm
+const LOGO_MO_HEIGHT = 22 // mm
+
 const MONTHS = [
-  'janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho',
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
   'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
 ]
 
@@ -82,83 +90,121 @@ function getDueDay(firstDueDate: string | null): string {
   return String(d.getDate())
 }
 
+async function loadImageAsDataURL(path: string): Promise<string> {
+  const res = await fetch(path)
+  const blob = await res.blob()
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(new Error(`Falha ao carregar imagem: ${path}`))
+    reader.readAsDataURL(blob)
+  })
+}
+
 // ──────────────────────────── PDF Generator ─────────────────────
 
 export type GenerateContractPdfOptions = { returnBlob?: boolean }
 
-export function generateContractPdf(
+export async function generateContractPdf(
   data: ContractPdfData,
   options?: GenerateContractPdfOptions
-): void | { blob: Blob; filename: string } {
+): Promise<void | { blob: Blob; filename: string }> {
   const { contract, customer, address } = data
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+
+  // Carrega imagens (marca d'água + logo MO)
+  const [watermarkDataUrl, logoMoDataUrl] = await Promise.all([
+    loadImageAsDataURL('/pdf/watermark-lebon.jpg'),
+    loadImageAsDataURL('/pdf/logo-mo.jpg'),
+  ])
 
   let y = MARGIN_TOP
 
   // ── Helpers ──
 
-  function addFooter(): void {
-    doc.setFont('helvetica', 'italic')
-    doc.setFontSize(8)
+  function addWatermark(): void {
+    const x = (PAGE_WIDTH - WATERMARK_SIZE) / 2
+    const yPos = (PAGE_HEIGHT - WATERMARK_SIZE) / 2
+    const GStateCtor = (doc as unknown as {
+      GState: new (opts: { opacity: number }) => unknown
+    }).GState
+    doc.setGState(new GStateCtor({ opacity: WATERMARK_OPACITY }))
+    doc.addImage(watermarkDataUrl, 'JPEG', x, yPos, WATERMARK_SIZE, WATERMARK_SIZE)
+    doc.setGState(new GStateCtor({ opacity: 1 }))
+  }
 
-    const footerLine1 = `${COMPANY.fullName}`
+  function addFooter(): void {
+    // Logo MO no canto esquerdo
+    doc.addImage(
+      logoMoDataUrl,
+      'JPEG',
+      MARGIN_LEFT - 4,
+      PAGE_HEIGHT - LOGO_MO_HEIGHT - 6,
+      LOGO_MO_WIDTH,
+      LOGO_MO_HEIGHT
+    )
+
+    // Dados da empresa no canto direito (italic bold)
+    doc.setFont('helvetica', 'bolditalic')
+    doc.setFontSize(9)
+
+    const footerLine1 = COMPANY.fullName
     const footerLine2 = `${COMPANY.street} - ${COMPANY.neighbourhood} - ${COMPANY.cep}`
     const footerLine3 = `${COMPANY.city} - ${COMPANY.state}`
     const footerLine4 = `Contato: ${COMPANY.phone}`
 
     const footerX = PAGE_WIDTH - MARGIN_RIGHT
 
-    doc.text(footerLine1, footerX, FOOTER_Y - 8, { align: 'right' })
-    doc.text(footerLine2, footerX, FOOTER_Y - 4, { align: 'right' })
-    doc.text(footerLine3, footerX, FOOTER_Y, { align: 'right' })
-    doc.text(footerLine4, footerX, FOOTER_Y + 4, { align: 'right' })
+    doc.text(footerLine1, footerX, FOOTER_Y - 10, { align: 'right' })
+    doc.text(footerLine2, footerX, FOOTER_Y - 6, { align: 'right' })
+    doc.text(footerLine3, footerX, FOOTER_Y - 2, { align: 'right' })
+    doc.text(footerLine4, footerX, FOOTER_Y + 2, { align: 'right' })
 
     doc.setFont('helvetica', 'normal')
   }
 
+  function addPageDecorations(): void {
+    addWatermark()
+  }
+
   function addHeader(): void {
-    // Company name
+    // Nome da empresa
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(18)
     doc.text(COMPANY.fullName, PAGE_WIDTH / 2, y, { align: 'center' })
-    y += 10
+    y += 9
 
-    // Title
+    // Título
     doc.setFontSize(13)
-    doc.text('INSTRUMENTO PARTICULAR DE CONFISSAO DE DIVIDA', PAGE_WIDTH / 2, y, { align: 'center' })
+    doc.text('INSTRUMENTO PARTICULAR DE CONFISSÃO DE DÍVIDA', PAGE_WIDTH / 2, y, { align: 'center' })
     y += 12
 
-    // Contract number
+    // Número do contrato dentro de uma caixa com borda leve
+    const boxY = y - 5
+    const boxHeight = 9
+    doc.setDrawColor(220, 220, 220)
+    doc.setLineWidth(0.3)
+    doc.rect(MARGIN_LEFT, boxY, CONTENT_WIDTH, boxHeight)
+    doc.setFont('helvetica', 'bold')
     doc.setFontSize(11)
-    doc.text(`Contrato n\u00BA ${contract.contract_number ?? '—'}`, PAGE_WIDTH / 2, y, { align: 'center' })
-    y += 10
+    doc.text(
+      `Contrato nº ${contract.contract_number ?? '—'}`,
+      PAGE_WIDTH / 2,
+      boxY + 6,
+      { align: 'center' }
+    )
+    y = boxY + boxHeight + 8
+
+    doc.setFont('helvetica', 'normal')
   }
 
   function checkPageBreak(needed: number): void {
     if (y + needed > PAGE_HEIGHT - MARGIN_BOTTOM) {
-      addFooter()
       doc.addPage()
       y = MARGIN_TOP
-      addPageHeader()
+      addPageDecorations()
+      addHeader()
     }
-  }
-
-  function addPageHeader(): void {
-    // Repeated header on subsequent pages
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(18)
-    doc.text(COMPANY.fullName, PAGE_WIDTH / 2, y, { align: 'center' })
-    y += 10
-
-    doc.setFontSize(13)
-    doc.text('INSTRUMENTO PARTICULAR DE CONFISSAO DE DIVIDA', PAGE_WIDTH / 2, y, { align: 'center' })
-    y += 12
-
-    doc.setFontSize(11)
-    doc.text(`Contrato n\u00BA ${contract.contract_number ?? '—'}`, PAGE_WIDTH / 2, y, { align: 'center' })
-    y += 10
-
-    doc.setFont('helvetica', 'normal')
   }
 
   function addWrappedText(
@@ -178,7 +224,7 @@ export function generateContractPdf(
     }
   }
 
-  /** Add text with inline bold segments marked with ** */
+  /** Texto com segmentos em negrito marcados com ** */
   function addRichText(
     text: string,
     fontSize: number,
@@ -187,33 +233,25 @@ export function generateContractPdf(
     doc.setFontSize(fontSize)
 
     const fullPlain = text.replace(/\*\*/g, '')
-
-    // Get wrapped lines from the plain version for correct line breaking
     const wrappedLines = doc.splitTextToSize(fullPlain, CONTENT_WIDTH) as string[]
 
-    // For simplicity: render as plain text with bold words
-    // Rebuild each line tracking bold segments
     let remainingText = text
     for (const line of wrappedLines) {
       checkPageBreak(lineHeight + 2)
 
-      // Find this line's content in the remaining rich text
       let x = MARGIN_LEFT
       let lineRemaining = line
 
       while (lineRemaining.length > 0) {
-        // Find the next bold segment position
         const boldStart = remainingText.indexOf('**')
 
         if (boldStart === -1) {
-          // No more bold, render rest as normal
           doc.setFont('helvetica', 'normal')
           doc.text(lineRemaining, x, y)
           remainingText = remainingText.substring(lineRemaining.length)
           break
         }
 
-        // Text before bold
         const plainBeforeBold = remainingText.substring(0, boldStart).replace(/\*\*/g, '')
 
         if (lineRemaining.startsWith(plainBeforeBold) && plainBeforeBold.length > 0) {
@@ -224,7 +262,6 @@ export function generateContractPdf(
           remainingText = remainingText.substring(boldStart)
         }
 
-        // Now at a ** marker
         if (remainingText.startsWith('**')) {
           const endBold = remainingText.indexOf('**', 2)
           if (endBold === -1) break
@@ -242,16 +279,12 @@ export function generateContractPdf(
             if (boldInLine === boldContent) {
               remainingText = remainingText.substring(endBold + 2)
             } else {
-              // Bold spans to next line
               remainingText = '**' + boldContent.substring(boldInLine.length) + '**' + remainingText.substring(endBold + 2)
             }
           } else {
-            // Fallback: render as normal
             doc.setFont('helvetica', 'normal')
             doc.text(lineRemaining, x, y)
-            // Advance remainingText
             const plainLine = lineRemaining
-            // Skip past these chars in remainingText
             let skip = 0
             let pIdx = 0
             while (pIdx < plainLine.length && skip < remainingText.length) {
@@ -268,7 +301,6 @@ export function generateContractPdf(
             break
           }
         } else {
-          // No bold marker at current position — render rest of line as normal
           doc.setFont('helvetica', 'normal')
           doc.text(lineRemaining, x, y)
           remainingText = remainingText.substring(lineRemaining.length)
@@ -292,28 +324,34 @@ export function generateContractPdf(
     doc.setFont('helvetica', 'normal')
   }
 
-  function addSignatureLine(label: string, extra?: string): void {
-    checkPageBreak(20)
+  function addSignatureLine(label: string, extra?: string, extra2?: string): void {
+    checkPageBreak(22)
     y += 8
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(10)
     doc.text('___________________________________________', MARGIN_LEFT, y)
     y += 5
+    doc.setFont('helvetica', 'bold')
     doc.text(label, MARGIN_LEFT, y)
+    doc.setFont('helvetica', 'normal')
     if (extra) {
       y += 5
       doc.text(extra, MARGIN_LEFT, y)
+    }
+    if (extra2) {
+      y += 5
+      doc.text(extra2, MARGIN_LEFT, y)
     }
   }
 
   // ── Build document ──
 
-  // Page 1 header
+  addPageDecorations()
   addHeader()
 
-  // CREDOR box
+  // CREDOR
   checkPageBreak(20)
-  const credorText = `**CREDOR**: **${COMPANY.name}**, pessoa juridica de direito privado, inscrito no CNPJ: **${COMPANY.cnpj}**, com sede em Rua: ${COMPANY.street}, ${COMPANY.neighbourhood}, ${COMPANY.cep}, ${COMPANY.city} - ${COMPANY.state}.`
+  const credorText = `**CREDOR**: **${COMPANY.name}**, pessoa jurídica de direito privado, inscrito no CNPJ: **${COMPANY.cnpj}**, com sede em Rua: ${COMPANY.street}, ${COMPANY.neighbourhood}, ${COMPANY.cep}, ${COMPANY.city} - ${COMPANY.state}.`
   addRichText(credorText, 10, 5.5)
   y += 4
 
@@ -327,21 +365,28 @@ export function generateContractPdf(
   const birthDate = formatDateBR(customer.birth_date)
   const addressStr = buildAddressString(address)
 
-  const devedorText = `**DEVEDOR**: **${customer.full_name ?? '—'}**, Brasileiro, ${maritalStatus}, ${occupation}, portador do CPF: **${cpfFormatted}** nascido em **${birthDate}**, residente e domiciliado a ${addressStr}.`
+  const devedorText = `**DEVEDOR**: **${customer.full_name ?? '—'}**, Brasileiro(a), ${maritalStatus}, ${occupation}, portador do CPF: **${cpfFormatted}** nascido em **${birthDate}**, residente e domiciliado à ${addressStr}.`
   addRichText(devedorText, 10, 5.5)
   y += 6
 
-  // CLAUSULA 1
-  addSectionTitle('CLAUSULA 1 \u2013 Objeto do Instrumento')
+  // CLÁUSULA 1
+  addSectionTitle('CLÁUSULA 1 – Objeto do Instrumento')
   addRichText(
-    '**1.1.** O presente instrumento tem por objetivo a confissao de divida **DEVEDOR**, em favor do **CREDOR** referente as atividades principais e secundarias prestadas pela empresa, mediante as condicoes estabelecidas neste documento.',
+    '**1.1.** O presente instrumento tem por objetivo a confissão de dívida **DEVEDOR**, em favor do **CREDOR** referente às atividades principais e secundárias prestadas pela empresa, mediante as condições estabelecidas neste documento.',
     10
   )
   y += 3
 
-  // CLAUSULA 2
-  addSectionTitle('CLAUSULA 2 \u2013 Valor da Divida')
-  const totalAmount = contract.contract_amount ?? contract.total_amount ?? 0
+  // CLÁUSULA 2
+  addSectionTitle('CLÁUSULA 2 – Valor da Dívida')
+  // Valor da dívida = total real do contrato (parcelas × qtd), não o principal simulado.
+  // Prioridade: total_amount salvo > parcela × qtd > contract_amount (fallback legado).
+  const parcelasXqtd =
+    contract.installment_amount != null && contract.installments_count > 0
+      ? contract.installment_amount * contract.installments_count
+      : null
+  const totalAmount =
+    contract.total_amount ?? parcelasXqtd ?? contract.contract_amount ?? 0
   const totalFormatted = formatCurrencyBR(totalAmount)
   const totalWords = numberToPortugueseWords(totalAmount)
   addRichText(
@@ -350,8 +395,8 @@ export function generateContractPdf(
   )
   y += 3
 
-  // CLAUSULA 3
-  addSectionTitle('CLAUSULA 3 \u2013 Condicoes de Pagamento')
+  // CLÁUSULA 3
+  addSectionTitle('CLÁUSULA 3 – Condições de Pagamento')
   const installmentCount = contract.installments_count ?? 0
   const installmentAmount = contract.installment_amount ?? 0
   const installmentFormatted = formatCurrencyBR(installmentAmount)
@@ -361,19 +406,19 @@ export function generateContractPdf(
   const customerName = customer.full_name ?? '—'
 
   addRichText(
-    `**3.1.** O **DEVEDOR** se compromete a pagar a divida em **${installmentCount} Titulos** mensais, iguais e sucessivas, no valor de **${installmentFormatted}** (${installmentWords}) cada, vencendo a primeira em **${firstDueFormatted}** e as demais todo dia **${dueDay} de cada mes** de cada mes.`,
+    `**3.1.** O **DEVEDOR** se compromete a pagar a dívida em **${installmentCount} Títulos** mensais, iguais e sucessivas, no valor de **${installmentFormatted}** (${installmentWords}) cada, vencendo a primeira em **${firstDueFormatted}** e as demais todo dia **${dueDay} de cada mês** de cada mês.`,
     10
   )
   y += 3
 
   addRichText(
-    `**3.2.** O pagamento das parcelas sera realizado por meio de boletos bancarios, que serao enviadas ao **DEVEDOR** com antecedencia minima de 2 (dois) dias antes do vencimento. Emitidas em nome de **${customerName}**.`,
+    `**3.2.** O pagamento das parcelas será realizado por meio de boletos bancários, que serão enviadas ao **DEVEDOR** com antecedência mínima de 2 (dois) dias antes do vencimento. Emitidas em nome de **${customerName}**.`,
     10
   )
   y += 3
 
-  // CLAUSULA 4
-  addSectionTitle('CLAUSULA 4 \u2013 Inadimplemento')
+  // CLÁUSULA 4
+  addSectionTitle('CLÁUSULA 4 – Inadimplemento')
   addRichText(
     '**4.1.** Em caso de inadimplemento por parte do **DEVEDOR**, o **CREDOR** se reserva o direito de:',
     10
@@ -381,59 +426,59 @@ export function generateContractPdf(
   y += 2
   addWrappedText('a) aplicar multa de 10% sobre o valor da parcela em atraso;', 10)
   y += 1
-  addWrappedText('b) cobrar juros de 2% ao mes sobre o valor da parcela em atraso, calculados para data dia;', 10)
+  addWrappedText('b) cobrar juros de 2% ao mês sobre o valor da parcela em atraso, calculados para data dia;', 10)
   y += 1
-  addWrappedText('c) Correcao monetaria, custas processuais e honorarios advocaticios no percentual de 20% sobre o valor total do debito;', 10)
+  addWrappedText('c) Correção monetária, custas processuais e honorários advocatícios no percentual de 20% sobre o valor total do débito;', 10)
   y += 1
-  addWrappedText('d) considerar antecipadas todas as parcelas vincendas, tornando-se exigiveis imediatamente.', 10)
+  addWrappedText('d) considerar antecipadas todas as parcelas vincendas, tornando-se exigíveis imediatamente.', 10)
   y += 3
 
   addRichText(
-    '**4.2.** O **DEVEDOR** sera notificado sobre o inadimplemento e tera o prazo de 10 dias para regularizar a situacao, sob pena de rescisao do presente instrumento, bem como de eventual processo judicial.',
-    10
-  )
-  y += 3
-
-  // CLAUSULA 5
-  addSectionTitle('CLAUSULA 5 \u2013 Rescisao do Instrumento')
-  addRichText(
-    '**5.1.** O presente instrumento podera ser rescindido pelo **CREDOR**, mediante notificacao, na hipotese de inadimplemento de qualquer clausula deste instrumento.',
-    10
-  )
-  y += 3
-  addRichText(
-    '**5.2.** Em caso de rescisao, o **DEVEDOR** devera quitar todas as parcelas devidas ate a data da rescisao, incluindo multas e juros, se houver.',
+    '**4.2.** O **DEVEDOR** será notificado sobre o inadimplemento e terá o prazo de 10 dias para regularizar a situação, sob pena de rescisão do presente instrumento, bem como de eventual processo judicial.',
     10
   )
   y += 3
 
-  // CLAUSULA 6
-  addSectionTitle('CLAUSULA 6 \u2013 Processo Judicial')
+  // CLÁUSULA 5
+  addSectionTitle('CLÁUSULA 5 – Rescisão do Instrumento')
   addRichText(
-    '**6.1.** As partes concordam que, em caso de necessidade de processo judicial para a cobranca de valores devidos, o foro competente sera o da comarca de Itapevi, renunciando a qualquer outro, por mais privilegiado que seja.',
+    '**5.1.** O presente instrumento poderá ser rescindido pelo **CREDOR**, mediante notificação, na hipótese de inadimplemento de qualquer cláusula deste instrumento.',
+    10
+  )
+  y += 3
+  addRichText(
+    '**5.2.** Em caso de rescisão, o **DEVEDOR** deverá quitar todas as parcelas devidas até a data da rescisão, incluindo multas e juros, se houver.',
     10
   )
   y += 3
 
-  // CLAUSULA 7
-  addSectionTitle('CLAUSULA 7 \u2013 Disposicoes Gerais')
+  // CLÁUSULA 6
+  addSectionTitle('CLÁUSULA 6 – Processo Judicial')
   addRichText(
-    '**7.1.** Este instrumento entra em vigor na data de sua assinatura e tera validade ate a quitacao total das obrigacoes assumidas.',
+    '**6.1.** As partes concordam que, em caso de necessidade de processo judicial para a cobrança de valores devidos, o foro competente será o da comarca de Itapevi, renunciando a qualquer outro, por mais privilegiado que seja.',
+    10
+  )
+  y += 3
+
+  // CLÁUSULA 7
+  addSectionTitle('CLÁUSULA 7 – Disposições Gerais')
+  addRichText(
+    '**7.1.** Este instrumento entra em vigor na data de sua assinatura e terá validade até a quitação total das obrigações assumidas.',
     10
   )
   y += 3
   addRichText(
-    '**7.2.** Qualquer alteracao neste instrumento devera ser feita por escrito e assinada por ambas as partes.',
+    '**7.2.** Qualquer alteração neste instrumento deverá ser feita por escrito e assinada por ambas as partes.',
     10
   )
   y += 3
   addRichText(
-    '**7.3.** As partes declaram que leram e compreenderam todas as clausulas deste instrumento, aceitando-as integralmente',
+    '**7.3.** As partes declaram que leram e compreenderam todas as cláusulas deste instrumento, aceitando-as integralmente',
     10
   )
   y += 6
 
-  // Closing
+  // Fechamento
   checkPageBreak(15)
   addWrappedText(
     'E, por estarem assim justas e contratadas, firmam o presente instrumento em duas vias de igual teor e forma.',
@@ -441,22 +486,24 @@ export function generateContractPdf(
   )
   y += 5
   addWrappedText(
-    'Para dirimir qualquer duvida oriunda deste instrumento fica eleito o foro de Itapevi.',
+    'Para dirimir qualquer dúvida oriunda deste instrumento fica eleito o foro de Itapevi.',
     10
   )
   y += 8
 
-  // Date
+  // Data
   checkPageBreak(10)
   const today = new Date()
   const dateStr = `Itapevi, ${today.getDate()} de ${MONTHS[today.getMonth()]} de ${today.getFullYear()}`
+  doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
   doc.text(dateStr, PAGE_WIDTH - MARGIN_RIGHT, y, { align: 'right' })
-  y += 10
+  doc.setFont('helvetica', 'normal')
+  y += 12
 
-  // Signatures
+  // Assinaturas
   addSignatureLine(
-    `${COMPANY.name}`,
+    COMPANY.name,
     `CNPJ: ${COMPANY.cnpj}`
   )
   y += 5
@@ -466,7 +513,7 @@ export function generateContractPdf(
     `CPF: ${cpfFormatted}`
   )
 
-  // Add footer on all pages
+  // Aplica rodapé em todas as páginas
   const totalPages = doc.getNumberOfPages()
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i)

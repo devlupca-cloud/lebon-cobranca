@@ -53,14 +53,17 @@ const UF_OPTIONS = [
 export const initialForm = {
   person_type: 'pf' as PersonType,
   customer_code: '',
+  system_code: '',
   status_id: 1,
   full_name: '',
   legal_name: '',
   trade_name: '',
   cpf: '',
   cnpj: '',
+  rg: '',
   state_registration: '',
   birth_date: '',
+  birthplace: '',
   email: '',
   phone: '',
   mobile: '',
@@ -101,8 +104,10 @@ export function customerToFormState(
     trade_name: customer.trade_name ?? '',
     cpf: customer.cpf ? maskCPF(customer.cpf) : '',
     cnpj: customer.cnpj ? maskCNPJ(customer.cnpj) : '',
+    rg: customer.rg ?? '',
     state_registration: customer.state_registration ?? '',
     birth_date: customer.birth_date ? formatISOToDDMMYYYY(customer.birth_date) : '',
+    birthplace: customer.birthplace ?? '',
     email: customer.email ?? '',
     phone: customer.phone ? maskPhone(customer.phone) : '',
     mobile: customer.mobile ? maskPhone(customer.mobile) : '',
@@ -110,6 +115,7 @@ export function customerToFormState(
     marital_status_id: customer.marital_status_id ?? '',
     referral: customer.referral ?? '',
     customer_code: customer.customer_code ?? '',
+    system_code: customer.system_code ?? '',
     credit_limit:
       customer.credit_limit != null
         ? maskCurrency(Math.round(customer.credit_limit * 100).toString())
@@ -285,8 +291,10 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
       trade_name: form.person_type === 'pj' ? form.trade_name || null : null,
       cpf: form.person_type === 'pf' ? (form.cpf ? form.cpf.replace(/\D/g, '') : null) : null,
       cnpj: form.person_type === 'pj' ? (form.cnpj ? form.cnpj.replace(/\D/g, '') : null) : null,
+      rg: form.person_type === 'pf' ? form.rg?.trim() || null : null,
       state_registration: form.person_type === 'pj' ? form.state_registration || null : null,
       birth_date: form.person_type === 'pf' ? parseDDMMYYYYToISO(form.birth_date) || null : null,
+      birthplace: form.person_type === 'pf' ? form.birthplace?.trim() || null : null,
       email: form.email || null,
       phone: form.phone ? form.phone.replace(/\D/g, '') || null : null,
       mobile: form.mobile ? form.mobile.replace(/\D/g, '') || null : null,
@@ -294,6 +302,7 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
       marital_status_id: maritalId,
       referral: form.referral || null,
       customer_code: form.customer_code || null,
+      system_code: form.system_code?.trim() || null,
       credit_limit: Number.isFinite(creditLimit) ? creditLimit : null,
       outstanding_balance: Number.isFinite(outstandingBalance) ? outstandingBalance : null,
       address: hasAddress
@@ -502,6 +511,18 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
                   value={form.occupation}
                   onChange={(e) => updateForm({ occupation: e.target.value })}
                   placeholder="Profissão"
+                />
+                <Input
+                  label="RG"
+                  value={form.rg}
+                  onChange={(e) => updateForm({ rg: e.target.value })}
+                  placeholder="00.000.000-0"
+                />
+                <Input
+                  label="Naturalidade"
+                  value={form.birthplace}
+                  onChange={(e) => updateForm({ birthplace: e.target.value })}
+                  placeholder="Cidade/UF de nascimento"
                 />
               </>
             ) : (
@@ -744,7 +765,13 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
               label="Código do cliente"
               value={form.customer_code}
               onChange={(e) => updateForm({ customer_code: e.target.value })}
-              placeholder="Digite o código do cliente"
+              placeholder="Código comercial (visível ao cliente)"
+            />
+            <Input
+              label="Código do sistema"
+              value={form.system_code}
+              onChange={(e) => updateForm({ system_code: e.target.value })}
+              placeholder="ID interno usado na operação"
             />
             <div className="w-full">
               <label htmlFor="credit_limit" className={labelClass}>

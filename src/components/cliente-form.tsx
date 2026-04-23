@@ -764,14 +764,18 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
             <Input
               label="Código do cliente"
               value={form.customer_code}
-              onChange={(e) => updateForm({ customer_code: e.target.value })}
-              placeholder="Código comercial (visível ao cliente)"
+              readOnly
+              disabled
+              title="Gerado automaticamente ao salvar (formato CLI-NNN)"
+              placeholder="Gerado automaticamente"
             />
             <Input
               label="Código do sistema"
               value={form.system_code}
-              onChange={(e) => updateForm({ system_code: e.target.value })}
-              placeholder="ID interno usado na operação"
+              readOnly
+              disabled
+              title="Gerado automaticamente ao salvar (espelha o código do cliente)"
+              placeholder="Gerado automaticamente"
             />
             <div className="w-full">
               <label htmlFor="credit_limit" className={labelClass}>

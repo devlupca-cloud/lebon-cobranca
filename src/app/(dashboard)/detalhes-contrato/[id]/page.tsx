@@ -3,6 +3,8 @@
 import { Button, ConfirmModal, LoadingScreen } from '@/components/ui'
 import { PopupQuitacao } from '@/components/popup-quitacao'
 import { PopupGerarPdf } from '@/components/popup-gerar-pdf'
+import { PopupRegistrarPagamento } from '@/components/popup-registrar-pagamento'
+import { PopupHistoricoPagamento } from '@/components/popup-historico-pagamento'
 import { useHeader } from '@/contexts/header-context'
 import {
   getContractById,
@@ -113,6 +115,8 @@ export default function DetalhesContratoPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [quitacaoOpen, setQuitacaoOpen] = useState(false)
+  const [pagamentoInstallment, setPagamentoInstallment] = useState<ContractInstallment | null>(null)
+  const [historicoInstallment, setHistoricoInstallment] = useState<ContractInstallment | null>(null)
   const [pdfOpen, setPdfOpen] = useState(false)
   const [confirmAction, setConfirmAction] = useState<'cancel' | 'delete' | null>(null)
 
@@ -225,7 +229,18 @@ export default function DetalhesContratoPage() {
   const statusClass = STATUS_BADGE_CLASS[statusId] ?? 'bg-[#E0E3E7] text-[#14181B]'
   const isDraft = statusId === CONTRACT_STATUS.DRAFT
   const isActive = statusId === CONTRACT_STATUS.ACTIVE
+  const isClosed = statusId === CONTRACT_STATUS.CLOSED
+  const hasRenegotiated = installments.some((i) => i.status_id === INSTALLMENT_STATUS.RENEGOTIATED)
   const canEdit = isDraft || isActive
+
+  // Tipo de PDF a oferecer: Encerrado → Quitação; tem parcelas renegociadas → Acordo; senão → Confissão
+  const pdfType: 'confissao' | 'quitacao' | 'acordo' = isClosed
+    ? 'quitacao'
+    : hasRenegotiated
+      ? 'acordo'
+      : 'confissao'
+  const pdfButtonLabel =
+    pdfType === 'quitacao' ? 'Gerar Quitação' : pdfType === 'acordo' ? 'Gerar Acordo' : 'Gerar PDF'
 
   return (
     <div className="flex flex-col p-6">
@@ -265,7 +280,7 @@ export default function DetalhesContratoPage() {
             onClick={() => setPdfOpen(true)}
           >
             <MdDescription className="h-4 w-4" />
-            Gerar PDF
+            {pdfButtonLabel}
           </Button>
           {isActive && (
             <Button
@@ -401,10 +416,13 @@ export default function DetalhesContratoPage() {
                   const saldo = inst.amount - inst.amount_paid
                   const instStatusLabel = INSTALLMENT_STATUS_LABELS[inst.status_id] ?? '—'
                   const instStatusClass = INSTALLMENT_STATUS_CLASS[inst.status_id] ?? 'bg-[#E0E3E7] text-[#14181B]'
-                  const canPay =
-                    saldo > 0 &&
-                    inst.status_id !== INSTALLMENT_STATUS.CANCELED &&
-                    inst.status_id !== INSTALLMENT_STATUS.RENEGOTIATED
+                  const isPaid = inst.status_id === INSTALLMENT_STATUS.PAID
+                  const isPartial = inst.status_id === INSTALLMENT_STATUS.PARTIAL
+                  const isCanceledOrReneg =
+                    inst.status_id === INSTALLMENT_STATUS.CANCELED ||
+                    inst.status_id === INSTALLMENT_STATUS.RENEGOTIATED
+                  const canPay = saldo > 0 && !isCanceledOrReneg
+                  const hasHistory = Number(inst.amount_paid ?? 0) > 0
                   return (
                     <tr key={inst.id} className="hover:bg-[#f1f4f8]/50">
                       <td className={tableCell + ' font-medium'}>{inst.installment_number}</td>
@@ -422,24 +440,39 @@ export default function DetalhesContratoPage() {
                         </span>
                       </td>
                       <td className={tableCell + ' text-right'}>
-                        {canPay ? (
-                          <button
-                            type="button"
-                            onClick={() => setQuitacaoOpen(true)}
-                            className="inline-flex items-center gap-1 rounded-[8px] bg-[#1E3A8A] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#1e40af]"
-                            title="Registrar pagamento desta parcela"
-                          >
-                            <MdPayment className="h-3.5 w-3.5" aria-hidden />
-                            Registrar pagamento
-                          </button>
-                        ) : inst.status_id === INSTALLMENT_STATUS.PAID ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-[#249689]">
-                            <MdCheckCircle className="h-3.5 w-3.5" aria-hidden />
-                            Quitada
-                          </span>
-                        ) : (
-                          <span className="text-xs text-[#57636C]">—</span>
-                        )}
+                        <div className="flex items-center justify-end gap-2">
+                          {canPay && (
+                            <button
+                              type="button"
+                              onClick={() => setPagamentoInstallment(inst)}
+                              className="inline-flex items-center gap-1 rounded-[8px] bg-[#1E3A8A] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#1e40af]"
+                              title="Registrar pagamento desta parcela"
+                            >
+                              <MdPayment className="h-3.5 w-3.5" aria-hidden />
+                              {isPartial ? 'Pagar restante' : 'Pagar'}
+                            </button>
+                          )}
+                          {hasHistory && (
+                            <button
+                              type="button"
+                              onClick={() => setHistoricoInstallment(inst)}
+                              className="inline-flex items-center gap-1 rounded-[8px] border border-[#E0E3E7] bg-white px-3 py-1.5 text-xs font-medium text-[#1E3A8A] transition-colors hover:bg-[#f1f4f8]"
+                              title="Ver histórico de pagamentos, estornar ou baixar recibo"
+                            >
+                              <MdReceipt className="h-3.5 w-3.5" aria-hidden />
+                              Detalhes
+                            </button>
+                          )}
+                          {isPaid && !hasHistory && (
+                            <span className="inline-flex items-center gap-1 text-xs text-[#249689]">
+                              <MdCheckCircle className="h-3.5 w-3.5" aria-hidden />
+                              Quitada
+                            </span>
+                          )}
+                          {!canPay && !hasHistory && !isPaid && (
+                            <span className="text-xs text-[#57636C]">—</span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )
@@ -473,6 +506,23 @@ export default function DetalhesContratoPage() {
         open={pdfOpen}
         onClose={() => setPdfOpen(false)}
         contractId={id}
+        type={pdfType}
+      />
+
+      <PopupRegistrarPagamento
+        open={!!pagamentoInstallment}
+        onClose={() => setPagamentoInstallment(null)}
+        installment={pagamentoInstallment}
+        companyId={companyId}
+        onSuccess={loadData}
+      />
+
+      <PopupHistoricoPagamento
+        open={!!historicoInstallment}
+        onClose={() => setHistoricoInstallment(null)}
+        installment={historicoInstallment}
+        companyId={companyId}
+        onChange={loadData}
       />
     </div>
   )

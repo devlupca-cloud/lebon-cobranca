@@ -37,6 +37,8 @@ function NovoContratoContent() {
   const firstDueDateParam = searchParams.get('firstDueDate')
   const principalParam = searchParams.get('principal')
   const taxaSimuladaParam = searchParams.get('taxaSimulada')
+  const adminFeeParam = searchParams.get('adminFee')
+  const adminFeeSimuladaParam = searchParams.get('adminFeeSimulada')
   const { setTitle, setBreadcrumb } = useHeader()
   const { companyId } = useCompanyId()
   const [initialCustomer, setInitialCustomer] = useState<CustomerAutocompleteItem | null>(null)
@@ -70,13 +72,17 @@ function NovoContratoContent() {
       base.interest_rate = taxaParam.trim().replace('.', ',')
       changed = true
     }
+    if (adminFeeParam != null && adminFeeParam.trim() !== '') {
+      base.admin_fee_rate = adminFeeParam.trim().replace('.', ',')
+      changed = true
+    }
     if (firstDueDateParam != null && /^\d{4}-\d{2}-\d{2}$/.test(firstDueDateParam.trim())) {
       base.first_due_date = firstDueDateParam.trim()
       changed = true
     }
     // Se veio da simulação com principal/taxa originais, registra nas
     // observações internas como trilha de auditoria (não aparece no PDF).
-    if (principalParam || taxaSimuladaParam) {
+    if (principalParam || taxaSimuladaParam || adminFeeSimuladaParam) {
       const fmtPrincipal = principalParam
         ? Number(principalParam.replace(',', '.')).toLocaleString('pt-BR', {
             style: 'currency',
@@ -86,6 +92,7 @@ function NovoContratoContent() {
       const trailParts = ['Gerado a partir de simulação:']
       if (fmtPrincipal) trailParts.push(`principal ${fmtPrincipal}`)
       if (taxaSimuladaParam) trailParts.push(`juros ${taxaSimuladaParam}% a.m.`)
+      if (adminFeeSimuladaParam) trailParts.push(`taxa admin ${adminFeeSimuladaParam}%`)
       base.notes = trailParts.join(' — ')
       changed = true
     }
@@ -94,9 +101,11 @@ function NovoContratoContent() {
     valorParam,
     parcelasParam,
     taxaParam,
+    adminFeeParam,
     firstDueDateParam,
     principalParam,
     taxaSimuladaParam,
+    adminFeeSimuladaParam,
   ])
 
   useEffect(() => {

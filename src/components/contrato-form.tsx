@@ -1,6 +1,6 @@
 'use client'
 
-import { Button } from '@/components/ui'
+import { Button, CurrencyInput } from '@/components/ui'
 import { getCompanyId } from '@/lib/supabase/company'
 import { getCustomersAutocomplete, type CustomerAutocompleteItem, getCustomerById, getAddressById } from '@/lib/supabase/customers'
 import { formatCPF, formatCNPJ } from '@/lib/format'
@@ -290,15 +290,10 @@ export function ContratoForm({
       const amount = form.contract_amount ? parseFloat(form.contract_amount.replace(',', '.')) : null
       const n = Math.max(1, parseInt(form.installments_count, 10) || 12)
       const interestPercent = form.interest_rate ? parseFloat(form.interest_rate.replace(',', '.')) : 0
+      const adminFeePercent = form.admin_fee_rate ? parseFloat(form.admin_fee_rate.replace(',', '.')) : 0
       const installmentAmount =
         amount != null && amount > 0
-          ? interestPercent > 0
-            ? (() => {
-                const i = interestPercent / 100
-                const factor = Math.pow(1 + i, n)
-                return amount * ((i * factor) / (factor - 1))
-              })()
-            : amount / n
+          ? calcularParcela(amount, n, interestPercent, adminFeePercent).parcela
           : null
       const totalAmount = form.valor_financiado ? parseFloat(form.valor_financiado.replace(',', '.')) : amount ?? null
       const adminFee = form.admin_fee_rate ? parseFloat(form.admin_fee_rate.replace(',', '.')) : null
@@ -370,10 +365,11 @@ export function ContratoForm({
     const valor = parseFloat((form.contract_amount || '').replace(',', '.')) || 0
     const n = Math.max(1, parseInt(form.installments_count, 10) || 0) || 0
     const taxa = parseFloat((form.interest_rate || '').replace(',', '.')) || 0
+    const admin = parseFloat((form.admin_fee_rate || '').replace(',', '.')) || 0
     if (valor <= 0 || n <= 0) return null
-    const { parcela, total } = calcularParcela(valor, n, taxa)
+    const { parcela, total } = calcularParcela(valor, n, taxa, admin)
     return { count: n, parcela, total }
-  }, [form.contract_amount, form.installments_count, form.interest_rate])
+  }, [form.contract_amount, form.installments_count, form.interest_rate, form.admin_fee_rate])
 
   // Geração de PDF direto do form (modo edit)
   const [pdfLoading, setPdfLoading] = useState(false)
@@ -678,30 +674,30 @@ export function ContratoForm({
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div>
                 <label className={label}>Valor do contrato *</label>
-                <div className="flex rounded-[8px] border border-[#e5e7eb] bg-white focus-within:border-[#1E3A8A] focus-within:ring-2 focus-within:ring-[#1E3A8A]/20">
-                  <span className="flex h-[42px] items-center pl-3 text-sm text-[#57636C]">R$</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={form.contract_amount}
-                    onChange={(e) => setForm((f) => ({ ...f, contract_amount: e.target.value }))}
-                    placeholder="0,00"
-                    className="h-[42px] flex-1 rounded-r-[8px] border-0 bg-transparent px-3 py-2.5 text-sm text-[#0f1419] placeholder:text-[#94a3b8] focus:outline-none"
-                    disabled={isFieldDisabled('contract_amount')}
-                  />
-                </div>
+                <CurrencyInput
+                  value={form.contract_amount}
+                  onChange={(v) => setForm((f) => ({ ...f, contract_amount: v }))}
+                  disabled={isFieldDisabled('contract_amount')}
+                />
               </div>
               <div>
                 <label className={label}>Número de parcelas *</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={form.installments_count}
-                  onChange={(e) => setForm((f) => ({ ...f, installments_count: e.target.value }))}
-                  placeholder="Ex.: 12"
-                  className={input}
-                  disabled={isFieldDisabled('installments_count')}
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={form.installments_count}
+                    onChange={(e) => setForm((f) => ({ ...f, installments_count: e.target.value }))}
+                    placeholder="Ex.: 12"
+                    className={input + (parcelasPreview ? ' pr-32' : '')}
+                    disabled={isFieldDisabled('installments_count')}
+                  />
+                  {parcelasPreview && (
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-[#1E3A8A]">
+                      × {formatCurrency(parcelasPreview.parcela)}
+                    </span>
+                  )}
+                </div>
               </div>
               <div>
                 <label className={label}>Data do 1º vencimento *</label>
@@ -826,18 +822,11 @@ export function ContratoForm({
                   </div>
                   <div>
                     <label className={label}>Valor financiado</label>
-                    <div className="flex rounded-[8px] border border-[#e5e7eb] bg-white focus-within:border-[#1E3A8A] focus-within:ring-2 focus-within:ring-[#1E3A8A]/20">
-                      <span className="flex h-[42px] items-center pl-3 text-sm text-[#57636C]">R$</span>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={form.valor_financiado}
-                        onChange={(e) => setForm((f) => ({ ...f, valor_financiado: e.target.value }))}
-                        placeholder="0,00"
-                        className="h-[42px] flex-1 rounded-r-[8px] border-0 bg-transparent px-3 py-2.5 text-sm text-[#0f1419] placeholder:text-[#94a3b8] focus:outline-none"
-                        disabled={isFieldDisabled('valor_financiado')}
-                      />
-                    </div>
+                    <CurrencyInput
+                      value={form.valor_financiado}
+                      onChange={(v) => setForm((f) => ({ ...f, valor_financiado: v }))}
+                      disabled={isFieldDisabled('valor_financiado')}
+                    />
                   </div>
                 </div>
               </div>

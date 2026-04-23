@@ -1,5 +1,6 @@
 export { Button } from './button'
 export { ConfirmModal } from './confirm-modal'
+export { CurrencyInput } from './currency-input'
 export { Input } from './input'
 export { Loading, LoadingScreen } from './loading'
 export { Modal } from './modal'

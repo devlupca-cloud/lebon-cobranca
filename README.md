@@ -123,7 +123,7 @@ src/
   contexts/     # React context (ex.: header)
   lib/          # Utilitários: design.ts, auth, supabase, format
   types/        # Tipos (ex.: database.ts)
-  middleware.ts # Auth / redirecionamento
+  proxy.ts      # Auth / redirecionamento (Next 16+; ex-middleware.ts)
 docs/
   DESIGN.md     # Documentação do design system
 .cursor/rules/  # Regras para Cursor/Antigravity

@@ -11,7 +11,7 @@ export interface ModalProps {
   /** Conteúdo do rodapé (ex.: botões) */
   footer?: React.ReactNode
   /** Largura máxima. Padrão 'md' (600px). */
-  size?: 'sm' | 'md' | 'lg' | 'xl'
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl'
 }
 
 const SIZE_CLASSES: Record<NonNullable<ModalProps['size']>, string> = {
@@ -19,6 +19,7 @@ const SIZE_CLASSES: Record<NonNullable<ModalProps['size']>, string> = {
   md: 'max-w-[600px]',
   lg: 'max-w-[800px]',
   xl: 'max-w-[1000px]',
+  '2xl': 'max-w-[1200px]',
 }
 
 export function Modal({ open, onClose, title, children, footer, size = 'md' }: ModalProps) {
@@ -64,7 +65,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: M
             </h2>
           </div>
         )}
-        <div className="max-h-[60vh] overflow-y-auto px-4 py-3">
+        <div className="max-h-[75vh] overflow-y-auto px-4 py-3">
           {children}
         </div>
         {footer && (

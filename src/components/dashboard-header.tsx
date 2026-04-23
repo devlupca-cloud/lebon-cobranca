@@ -24,6 +24,7 @@ import Link from 'next/link'
  * Prefere sempre o breadcrumb quando disponível.
  */
 const BACK_FALLBACK: Array<{ prefix: string; parent: string; label: string }> = [
+  // Sub-rotas (detalhe/edição/criação) — voltam para a listagem
   { prefix: '/detalhes-contrato', parent: '/contratos', label: 'Contratos' },
   { prefix: '/editar-contrato', parent: '/contratos', label: 'Contratos' },
   { prefix: '/novo-contrato', parent: '/contratos', label: 'Contratos' },
@@ -38,6 +39,17 @@ const BACK_FALLBACK: Array<{ prefix: string; parent: string; label: string }> = 
   { prefix: '/xeque-financiamento', parent: '/contratos', label: 'Contratos' },
   { prefix: '/gerardocumentosnovo', parent: '/contratos', label: 'Contratos' },
   { prefix: '/cadastro-geral', parent: '/home', label: 'Início' },
+  // Listagens principais — voltam para Home
+  { prefix: '/clientes', parent: '/home', label: 'Início' },
+  { prefix: '/contratos', parent: '/home', label: 'Início' },
+  { prefix: '/inadimplentes01', parent: '/home', label: 'Início' },
+  { prefix: '/fluxo-caixa', parent: '/home', label: 'Início' },
+  { prefix: '/extrato-financeiro', parent: '/home', label: 'Início' },
+  { prefix: '/gerar-documentos', parent: '/home', label: 'Início' },
+  { prefix: '/contas-a-pagar', parent: '/home', label: 'Início' },
+  { prefix: '/emprestimos', parent: '/home', label: 'Início' },
+  { prefix: '/configuracoes', parent: '/home', label: 'Início' },
+  { prefix: '/profile06', parent: '/home', label: 'Início' },
 ]
 
 function formatActivityDate(dateStr: string): string {
@@ -161,17 +173,6 @@ export function DashboardHeader() {
     <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-[#E0E3E7] bg-white px-6 shadow-sm">
       {/* Lado esquerdo - Conteúdo dinâmico por página */}
       <div className="flex items-center gap-3 min-w-0 flex-1">
-        {backDestination && (
-          <button
-            type="button"
-            onClick={() => router.push(backDestination.href)}
-            title={`Voltar para ${backDestination.label}`}
-            aria-label={`Voltar para ${backDestination.label}`}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] text-[#57636C] transition-colors hover:bg-[#f1f4f8] hover:text-[#1E3A8A]"
-          >
-            <MdArrowBack className="h-5 w-5" />
-          </button>
-        )}
         {leftContent ? (
           leftContent
         ) : (
@@ -210,6 +211,20 @@ export function DashboardHeader() {
 
       {/* Lado direito - Ações globais */}
       <div className="flex items-center gap-3">
+        {/* Voltar (contextual, renderizado antes das ações globais) */}
+        {backDestination && (
+          <button
+            type="button"
+            onClick={() => router.push(backDestination.href)}
+            title={`Voltar para ${backDestination.label}`}
+            aria-label={`Voltar para ${backDestination.label}`}
+            className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-[8px] border border-[#E0E3E7] bg-white px-3 text-sm font-medium text-[#1E3A8A] transition-colors hover:bg-[#f1f4f8]"
+          >
+            <MdArrowBack className="h-4 w-4" />
+            Voltar
+          </button>
+        )}
+
         {/* Notificações */}
         <div className="relative" ref={notificationsRef}>
           <button

@@ -28,7 +28,7 @@ Arquivo `.env.local` (nao commitar) com:
 
 ### Autenticacao e middleware
 
-`src/middleware.ts` intercepta todas as rotas:
+`src/proxy.ts` (ex-`middleware.ts`, renomeado no Next 16) intercepta todas as rotas:
 - Usuarios nao autenticados sao redirecionados para `/login`
 - Usuarios autenticados em rotas de auth (`/login`, `/cadastre-se`, `/esqueci-senha`) vao para `/home`
 - Rota `/` redireciona conforme estado de autenticacao

@@ -2,6 +2,7 @@
 
 import { LoadingScreen } from '@/components/ui'
 import { PopupAcordo } from '@/components/popup-acordo'
+import { PopupGerarPdf } from '@/components/popup-gerar-pdf'
 import { useHeader } from '@/contexts/header-context'
 import { useCompanyId } from '@/hooks/use-company-id'
 import { getOverdueInstallments } from '@/lib/supabase/installments'
@@ -146,6 +147,7 @@ export default function InadimplentesPage() {
   const [filterSituacao, setFilterSituacao] = useState('')
   const [filterData, setFilterData] = useState('')
   const [acordoTarget, setAcordoTarget] = useState<ContractOverdueCard | null>(null)
+  const [pdfContractId, setPdfContractId] = useState<string | null>(null)
 
   useEffect(() => {
     setTitle('Inadimplentes')
@@ -419,12 +421,13 @@ export default function InadimplentesPage() {
                 >
                   Detalhes
                 </Link>
-                <Link
-                  href={`/gerardocumentosnovo?contractId=${c.contractId}`}
+                <button
+                  type="button"
+                  onClick={() => setPdfContractId(c.contractId)}
                   className={buttonSecondary}
                 >
                   Gerar PDF
-                </Link>
+                </button>
               </div>
             </li>
           ))}
@@ -437,6 +440,13 @@ export default function InadimplentesPage() {
         contractId={acordoTarget?.contractId ?? null}
         contractNumber={acordoTarget?.contractNumber ?? null}
         customerName={acordoTarget?.customerName ?? ''}
+      />
+
+      <PopupGerarPdf
+        open={!!pdfContractId}
+        onClose={() => setPdfContractId(null)}
+        contractId={pdfContractId}
+        type="confissao"
       />
     </div>
   )

@@ -17,7 +17,7 @@ function isProtectedRoute(pathname: string) {
   return true
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const response = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -94,7 +94,7 @@ export async function middleware(request: NextRequest) {
   return response
 }
 
-export const config = {
+export const proxyConfig = {
   matcher: [
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],

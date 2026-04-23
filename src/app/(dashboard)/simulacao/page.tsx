@@ -1,6 +1,6 @@
 'use client'
 
-import { LoadingScreen } from '@/components/ui'
+import { CurrencyInput, LoadingScreen } from '@/components/ui'
 import { useHeader } from '@/contexts/header-context'
 import { useCompanyId } from '@/hooks/use-company-id'
 import { calcularParcela, formatCurrency } from '@/lib/simulacao'
@@ -61,10 +61,12 @@ function SimulacaoContent() {
   const initialValor = searchParams.get('valor') ?? ''
   const initialParcelas = searchParams.get('parcelas') ?? ''
   const initialTaxa = searchParams.get('taxa') ?? ''
+  const initialAdminFee = searchParams.get('adminFee') ?? ''
   const initialFirstDue = searchParams.get('firstDueDate') ?? ''
 
   const [valor, setValor] = useState(initialValor)
   const [taxaJuros, setTaxaJuros] = useState(initialTaxa)
+  const [taxaAdmin, setTaxaAdmin] = useState(initialAdminFee)
   const [parcelas, setParcelas] = useState(initialParcelas)
   const [primeiroVencimento, setPrimeiroVencimento] = useState(initialFirstDue)
   const [submitting, setSubmitting] = useState(false)
@@ -76,10 +78,11 @@ function SimulacaoContent() {
     Math.floor(parseFloat(String(parcelas).replace(/\D/g, '')) || 0) || 1
   )
   const taxaNum = parseFloat(String(taxaJuros).replace(',', '.')) || 0
+  const adminNum = parseFloat(String(taxaAdmin).replace(',', '.')) || 0
 
   const { parcela: valorPorParcela, total: valorTotal } = useMemo(
-    () => calcularParcela(valorNum, parcelasNum, taxaNum),
-    [valorNum, parcelasNum, taxaNum]
+    () => calcularParcela(valorNum, parcelasNum, taxaNum, adminNum),
+    [valorNum, parcelasNum, taxaNum, adminNum]
   )
 
   const novoContratoHref = useMemo(() => {
@@ -96,9 +99,11 @@ function SimulacaoContent() {
       params.set('installmentAmount', valorPorParcela.toFixed(2))
       params.set('principal', valorNum.toFixed(2))
       if (taxaNum > 0) params.set('taxaSimulada', String(taxaNum).replace('.', ','))
+      if (adminNum > 0) params.set('adminFeeSimulada', String(adminNum).replace('.', ','))
     } else {
       if (valor.trim()) params.set('valor', valor.replace(',', '.'))
       if (taxaJuros.trim()) params.set('taxa', String(taxaNum).replace('.', ','))
+      if (taxaAdmin.trim()) params.set('adminFee', String(adminNum).replace('.', ','))
     }
     if (parcelas.trim()) params.set('parcelas', String(parcelasNum))
     if (primeiroVencimento && /^\d{4}-\d{2}-\d{2}$/.test(primeiroVencimento)) {
@@ -112,6 +117,8 @@ function SimulacaoContent() {
     parcelasNum,
     taxaJuros,
     taxaNum,
+    taxaAdmin,
+    adminNum,
     primeiroVencimento,
     valorTotal,
     valorPorParcela,
@@ -137,12 +144,18 @@ function SimulacaoContent() {
         primeiroVencimento
       )
 
+      const noteParts = [
+        `Acordo gerado em simulação. Total ${formatCurrency(valorTotal)} em ${parcelasNum}x.`,
+      ]
+      if (taxaNum > 0) noteParts.push(`Juros ${String(taxaNum).replace('.', ',')}% a.m.`)
+      if (adminNum > 0) noteParts.push(`Taxa admin ${String(adminNum).replace('.', ',')}%`)
+
       await createAgreement({
         companyId,
         contractId: agreement.contractId,
         originalInstallmentIds: agreement.installmentIds,
         newInstallments,
-        notes: `Acordo gerado em simulação. Total ${formatCurrency(valorTotal)} em ${parcelasNum}x.`,
+        notes: noteParts.join(' '),
       })
 
       router.push(`/detalhes-contrato/${agreement.contractId}?acordo=ok`)
@@ -199,15 +212,7 @@ function SimulacaoContent() {
             <label htmlFor="sim-valor" className={labelClass}>
               Valor (R$)
             </label>
-            <input
-              id="sim-valor"
-              type="text"
-              inputMode="decimal"
-              className={input}
-              placeholder="Valor"
-              value={valor}
-              onChange={(e) => setValor(e.target.value)}
-            />
+            <CurrencyInput id="sim-valor" value={valor} onChange={setValor} />
           </div>
           <div>
             <label htmlFor="sim-taxa" className={labelClass}>
@@ -224,18 +229,39 @@ function SimulacaoContent() {
             />
           </div>
           <div>
+            <label htmlFor="sim-admin" className={labelClass}>
+              Taxa Administrativa
+            </label>
+            <input
+              id="sim-admin"
+              type="text"
+              inputMode="decimal"
+              className={input}
+              placeholder="Em %"
+              value={taxaAdmin}
+              onChange={(e) => setTaxaAdmin(e.target.value)}
+            />
+          </div>
+          <div>
             <label htmlFor="sim-parcelas" className={labelClass}>
               Parcelas
             </label>
-            <input
-              id="sim-parcelas"
-              type="text"
-              inputMode="numeric"
-              className={input}
-              placeholder="ex: 12x 500,00"
-              value={parcelas}
-              onChange={(e) => setParcelas(e.target.value)}
-            />
+            <div className="relative">
+              <input
+                id="sim-parcelas"
+                type="text"
+                inputMode="numeric"
+                className={input + (valorNum > 0 && parcelasNum > 0 ? ' pr-32' : '')}
+                placeholder="Ex.: 12"
+                value={parcelas}
+                onChange={(e) => setParcelas(e.target.value)}
+              />
+              {valorNum > 0 && parcelasNum > 0 && (
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-[#1E3A8A]">
+                  × {formatCurrency(valorPorParcela)}
+                </span>
+              )}
+            </div>
           </div>
           <div>
             <label htmlFor="sim-valor-parcela" className={labelClass}>

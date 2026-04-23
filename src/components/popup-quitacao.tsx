@@ -1,13 +1,15 @@
 'use client'
 
-import { Button, ConfirmModal, Modal } from '@/components/ui'
+import { Button, ConfirmModal, CurrencyInput, Modal } from '@/components/ui'
 import { getInstallmentsByContract, getContractById, checkAndCloseContract } from '@/lib/supabase/contracts'
 import { recordPayment, quitContract, getPaymentsByInstallment, deletePayment } from '@/lib/supabase/payments'
-import type { ContractInstallment } from '@/types/database'
+import { getCustomerById } from '@/lib/supabase/customers'
+import { generateReciboPdf } from '@/lib/pdf/recibo-pdf'
+import type { ContractInstallment, InstallmentPayment } from '@/types/database'
 import { INSTALLMENT_STATUS, PAYMENT_METHOD } from '@/types/enums'
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { MdReceipt, MdDescription, MdSwapHoriz, MdWarning, MdCheck } from 'react-icons/md'
+import { MdReceipt, MdDescription, MdSwapHoriz, MdWarning, MdDownload, MdUndo } from 'react-icons/md'
 
 export type PopupQuitacaoProps = {
   open: boolean
@@ -76,7 +78,6 @@ export function PopupQuitacao({
   const [submitting, setSubmitting] = useState(false)
   const [paymentError, setPaymentError] = useState<string | null>(null)
   const [expandedInstallmentId, setExpandedInstallmentId] = useState<string | null>(null)
-  const [markingAsPaidId, setMarkingAsPaidId] = useState<string | null>(null)
   const [paymentToRevertId, setPaymentToRevertId] = useState<string | null>(null)
   const [confirmQuitarOpen, setConfirmQuitarOpen] = useState(false)
 
@@ -116,46 +117,6 @@ export function PopupQuitacao({
       notes: '',
     })
     setPaymentError(null)
-  }
-
-  const handleMarkAsPaid = async (inst: ContractInstallment) => {
-    if (!companyId) return
-    const openAmount = Number(inst.amount) - Number(inst.amount_paid)
-    if (openAmount <= 0) return
-    setMarkingAsPaidId(inst.id)
-    setPaymentError(null)
-    setQuitacaoMessage(null)
-    try {
-      await recordPayment({
-        company_id: companyId,
-        installment_id: inst.id,
-        paid_amount: openAmount,
-        paid_at: new Date().toISOString().split('T')[0],
-        payment_method_id: PAYMENT_METHOD.PIX,
-        notes: 'Marcado como pago',
-      })
-      setQuitacaoMessage({ type: 'success', text: `Parcela ${inst.installment_number} marcada como paga.` })
-      // Atualização otimista: atualiza a parcela no estado sem refetch
-      const paidAt = new Date().toISOString().split('T')[0]
-      setInstallments((prev) =>
-        prev.map((i) =>
-          i.id === inst.id
-            ? {
-                ...i,
-                amount_paid: Number(inst.amount),
-                status_id: INSTALLMENT_STATUS.PAID,
-                paid_at: paidAt,
-              }
-            : i
-        )
-      )
-    } catch (e) {
-      const err = e as { message?: string; details?: string }
-      const msg = err?.message ?? (e instanceof Error ? e.message : 'Erro ao marcar parcela como paga.')
-      setPaymentError(err?.details ? `${msg}: ${err.details}` : msg)
-    } finally {
-      setMarkingAsPaidId(null)
-    }
   }
 
   const handleClosePaymentForm = () => {
@@ -296,6 +257,7 @@ export function PopupQuitacao({
       open={open}
       onClose={handleCloseModal}
       title="Quitação"
+      size="2xl"
       footer={
         <Button type="button" variant="primary" onClick={handleCloseModal}>
           Fechar
@@ -387,8 +349,8 @@ export function PopupQuitacao({
             <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#1E3A8A] border-t-transparent" />
           </div>
         ) : (
-          <div className="max-h-[60vh] overflow-auto">
-            <table className="min-w-full divide-y divide-zinc-200 text-sm">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-zinc-200 text-sm whitespace-nowrap">
               <thead className="bg-zinc-50">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium text-zinc-500">Parcela</th>
@@ -420,17 +382,14 @@ export function PopupQuitacao({
                           {isOpen && companyId && (
                             <button
                               type="button"
-                              onClick={() => handleMarkAsPaid(inst)}
-                              disabled={markingAsPaidId !== null}
-                              aria-label="Marcar como pago"
-                              title="Marcar como pago"
-                              className="inline-flex items-center justify-center rounded-[8px] p-1.5 text-[#249689] hover:bg-[#249689]/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                              onClick={() => handleOpenPaymentForm(inst)}
+                              disabled={payingInstallmentId !== null}
+                              aria-label="Registrar pagamento"
+                              title="Registrar pagamento"
+                              className="inline-flex items-center gap-1 rounded-[8px] px-2 py-1 text-sm font-medium text-[#1E3A8A] hover:bg-[#1E3A8A]/10 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              {markingAsPaidId === inst.id ? (
-                                <span className="block h-4 w-4 animate-spin rounded-full border-2 border-[#249689] border-t-transparent" />
-                              ) : (
-                                <MdCheck className="h-4 w-4" />
-                              )}
+                              <MdReceipt className="h-4 w-4" />
+                              Pagar
                             </button>
                           )}
                           {paid > 0 && (
@@ -448,7 +407,9 @@ export function PopupQuitacao({
                         <tr>
                           <td colSpan={7} className="bg-[#f1f4f8] px-3 py-3 align-top">
                             <PaymentHistory
-                              installmentId={inst.id}
+                              installment={inst}
+                              contractId={contractId ?? ''}
+                              companyId={companyId ?? null}
                               onRevert={async (paymentId) => { setPaymentToRevertId(paymentId) }}
                               onClose={() => setExpandedInstallmentId(null)}
                               reverting={submitting}
@@ -470,12 +431,9 @@ export function PopupQuitacao({
             <form onSubmit={handleSubmitPayment} className="space-y-3">
               <div>
                 <label className="mb-1 block text-xs font-medium text-[#14181B]">Valor (R$)</label>
-                <input
-                  type="text"
-                  inputMode="decimal"
+                <CurrencyInput
                   value={paymentForm.paid_amount}
-                  onChange={(e) => setPaymentForm((f) => ({ ...f, paid_amount: e.target.value }))}
-                  className="w-full rounded-[8px] border border-[#E0E3E7] bg-white py-2 px-3 text-sm"
+                  onChange={(v) => setPaymentForm((f) => ({ ...f, paid_amount: v }))}
                 />
               </div>
               <div>
@@ -552,26 +510,49 @@ export function PopupQuitacao({
 }
 
 function PaymentHistory({
-  installmentId,
+  installment,
+  contractId,
+  companyId,
   onRevert,
   onClose,
   reverting,
 }: {
-  installmentId: string
+  installment: ContractInstallment
+  contractId: string
+  companyId: string | null
   onRevert: (paymentId: string) => Promise<void>
   onClose: () => void
   reverting: boolean
 }) {
-  const [payments, setPayments] = useState<Array<{ id: string; paid_amount: number; paid_at: string; payment_method_id: number }>>([])
+  const [payments, setPayments] = useState<InstallmentPayment[]>([])
   const [loading, setLoading] = useState(true)
+  const [generatingReciboId, setGeneratingReciboId] = useState<string | null>(null)
+  const [reciboError, setReciboError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    getPaymentsByInstallment(installmentId).then((list) => {
+    getPaymentsByInstallment(installment.id).then((list) => {
       if (!cancelled) setPayments(list)
     }).finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [installmentId])
+  }, [installment.id])
+
+  async function handleBaixarRecibo(payment: InstallmentPayment) {
+    if (!companyId || !contractId) return
+    setGeneratingReciboId(payment.id)
+    setReciboError(null)
+    try {
+      const contract = await getContractById(contractId, companyId)
+      if (!contract) throw new Error('Contrato não encontrado.')
+      const customer = await getCustomerById(contract.customer_id)
+      if (!customer) throw new Error('Cliente não encontrado.')
+      generateReciboPdf({ contract, customer, installment, payment })
+    } catch (e) {
+      setReciboError(e instanceof Error ? e.message : 'Erro ao gerar recibo.')
+    } finally {
+      setGeneratingReciboId(null)
+    }
+  }
 
   return (
     <div className="rounded-[8px] border border-[#E0E3E7] bg-[#f1f4f8] p-4">
@@ -581,6 +562,9 @@ function PaymentHistory({
           Fechar
         </button>
       </div>
+      {reciboError && (
+        <p className="mb-2 text-xs text-red-600">{reciboError}</p>
+      )}
       {loading ? (
         <p className="text-sm text-zinc-500">Carregando...</p>
       ) : payments.length === 0 ? (
@@ -588,18 +572,30 @@ function PaymentHistory({
       ) : (
         <ul className="space-y-2">
           {payments.map((p) => (
-            <li key={p.id} className="flex items-center justify-between text-sm">
+            <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
               <span>
-                {formatCurrency(p.paid_amount)} — {formatDate(p.paid_at)} — {PAYMENT_METHOD_LABELS[p.payment_method_id] ?? p.payment_method_id}
+                {formatCurrency(Number(p.paid_amount))} — {formatDate(p.paid_at)} — {PAYMENT_METHOD_LABELS[p.payment_method_id] ?? p.payment_method_id}
               </span>
-              <button
-                type="button"
-                onClick={() => onRevert(p.id)}
-                disabled={reverting}
-                className="font-medium text-red-600 hover:underline disabled:opacity-50"
-              >
-                Estornar
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleBaixarRecibo(p)}
+                  disabled={generatingReciboId !== null}
+                  className="inline-flex items-center gap-1 rounded-[8px] border border-[#E0E3E7] bg-white px-2 py-1 text-xs font-medium text-[#1E3A8A] hover:bg-white/80 disabled:opacity-50"
+                >
+                  <MdDownload className="h-4 w-4" />
+                  {generatingReciboId === p.id ? 'Gerando...' : 'Recibo'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRevert(p.id)}
+                  disabled={reverting}
+                  className="inline-flex items-center gap-1 rounded-[8px] border border-red-200 bg-white px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                >
+                  <MdUndo className="h-4 w-4" />
+                  Estornar
+                </button>
+              </div>
             </li>
           ))}
         </ul>

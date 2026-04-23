@@ -1,6 +1,6 @@
 'use client'
 
-import { Button, Modal } from '@/components/ui'
+import { Button, CurrencyInput, Modal } from '@/components/ui'
 import { card } from '@/lib/design'
 import { useEffect, useState } from 'react'
 
@@ -173,8 +173,14 @@ export function PopupSimulacao({
   }
 
   const valorNum = parseFloat(String(valor).replace(',', '.'))
+  const parcelasNum = Math.max(1, parseInt(parcelas, 10) || 0) || 0
+  const taxaNum = parseFloat(String(taxa).replace(',', '.')) || 0
   const valorFormatado = Number.isFinite(valorNum) && valorNum > 0 ? formatCurrency(valorNum) : (valor || '—')
   const taxaFormatada = taxa.trim() ? `${taxa.trim()}%` : '—'
+  const previewParcela =
+    Number.isFinite(valorNum) && valorNum > 0 && parcelasNum > 0
+      ? calcularParcela(valorNum, parcelasNum, taxaNum).parcela
+      : 0
 
   return (
     <Modal
@@ -250,25 +256,28 @@ export function PopupSimulacao({
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-[#14181B]">Valor (R$)</label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
+                  <CurrencyInput
                     value={valor}
-                    onChange={(e) => { setValor(e.target.value); setListaParcelas([]) }}
-                    placeholder="0,00"
-                    className="h-[42px] w-full rounded-[8px] border border-[#e5e7eb] bg-white px-3 py-2.5 text-sm text-[#0f1419] placeholder:text-[#94a3b8] focus:border-[#1E3A8A] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/20"
+                    onChange={(v) => { setValor(v); setListaParcelas([]) }}
                   />
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-[#14181B]">Número de parcelas</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={parcelas}
-                    onChange={(e) => { setParcelas(e.target.value); setListaParcelas([]) }}
-                    placeholder="12"
-                    className="h-[42px] w-full rounded-[8px] border border-[#e5e7eb] bg-white px-3 py-2.5 text-sm text-[#0f1419] placeholder:text-[#94a3b8] focus:border-[#1E3A8A] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/20"
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={parcelas}
+                      onChange={(e) => { setParcelas(e.target.value); setListaParcelas([]) }}
+                      placeholder="12"
+                      className={`h-[42px] w-full rounded-[8px] border border-[#e5e7eb] bg-white px-3 py-2.5 text-sm text-[#0f1419] placeholder:text-[#94a3b8] focus:border-[#1E3A8A] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 ${previewParcela > 0 ? 'pr-32' : ''}`}
+                    />
+                    {previewParcela > 0 && (
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-[#1E3A8A]">
+                        × {formatCurrency(previewParcela)}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-[#14181B]">Data do 1º vencimento</label>

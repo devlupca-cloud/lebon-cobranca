@@ -2,6 +2,7 @@
 
 import { Button, CurrencyInput, Modal } from '@/components/ui'
 import { card } from '@/lib/design'
+import { calcularParcela } from '@/lib/simulacao'
 import { useEffect, useState } from 'react'
 
 /** Objeto com dados mínimos para exibir nome do cliente (Customer ou item do autocomplete). */
@@ -16,6 +17,7 @@ export type SimulacaoValues = {
   parcelas: string
   firstDueDate: string
   taxa: string
+  adminFee: string
 }
 
 export type PopupSimulacaoProps = {
@@ -26,29 +28,10 @@ export type PopupSimulacaoProps = {
   initialValor?: string
   initialParcelas?: string
   initialTaxa?: string
+  initialAdminFee?: string
   initialFirstDueDate?: string
   /** Chamado ao clicar em "Salvar essa seleção" — aplica os valores no formulário e volta para a página */
   onApply?: (values: SimulacaoValues) => void
-}
-
-/** Parcela mensal (PMT): valor * (i * (1+i)^n) / ((1+i)^n - 1), i = taxa mensal */
-function calcularParcela(
-  valorPrincipal: number,
-  numParcelas: number,
-  taxaMensalPercent: number
-): { parcela: number; total: number } {
-  if (valorPrincipal <= 0 || numParcelas <= 0) {
-    return { parcela: 0, total: 0 }
-  }
-  const i = taxaMensalPercent / 100
-  if (i <= 0) {
-    const parcela = valorPrincipal / numParcelas
-    return { parcela, total: valorPrincipal }
-  }
-  const factor = Math.pow(1 + i, numParcelas)
-  const parcela = valorPrincipal * ((i * factor) / (factor - 1))
-  const total = parcela * numParcelas
-  return { parcela, total }
 }
 
 /** Soma meses a uma data ISO (yyyy-mm-dd). */
@@ -94,12 +77,14 @@ export function PopupSimulacao({
   initialValor,
   initialParcelas,
   initialTaxa,
+  initialAdminFee,
   initialFirstDueDate,
   onApply,
 }: PopupSimulacaoProps) {
   const [valor, setValor] = useState('')
   const [parcelas, setParcelas] = useState('12')
   const [taxa, setTaxa] = useState('')
+  const [adminFee, setAdminFee] = useState('')
   const [firstDueDate, setFirstDueDate] = useState('')
   const [listaParcelas, setListaParcelas] = useState<ParcelaSimulada[]>([])
   /** Modo travado = só leitura (valores do contrato). Editar = libera campos para testar outras combinações */
@@ -110,13 +95,14 @@ export function PopupSimulacao({
       if (initialValor != null) setValor(initialValor)
       if (initialParcelas != null) setParcelas(initialParcelas)
       if (initialTaxa != null) setTaxa(initialTaxa)
+      if (initialAdminFee != null) setAdminFee(initialAdminFee)
       if (initialFirstDueDate != null) setFirstDueDate(initialFirstDueDate)
       setIsEditing(!(initialValor?.trim() && initialParcelas?.trim()))
     } else {
       setListaParcelas([])
       setIsEditing(false)
     }
-  }, [open, initialValor, initialParcelas, initialTaxa, initialFirstDueDate])
+  }, [open, initialValor, initialParcelas, initialTaxa, initialAdminFee, initialFirstDueDate])
 
   /** Ao abrir com valor e parcelas preenchidos (ex.: da tela Novo Contrato), gera a simulação na hora */
   useEffect(() => {
@@ -124,8 +110,9 @@ export function PopupSimulacao({
     const v = parseFloat(String(initialValor ?? '').replace(',', '.')) || 0
     const n = Math.max(1, parseInt(initialParcelas ?? '', 10) || 1)
     const t = parseFloat(String(initialTaxa ?? '').replace(',', '.')) || 0
+    const a = parseFloat(String(initialAdminFee ?? '').replace(',', '.')) || 0
     if (v <= 0) return
-    const { parcela } = calcularParcela(v, n, t)
+    const { parcela } = calcularParcela(v, n, t, a)
     const baseDate =
       initialFirstDueDate && /^\d{4}-\d{2}-\d{2}$/.test(initialFirstDueDate)
         ? initialFirstDueDate
@@ -139,7 +126,7 @@ export function PopupSimulacao({
       })
     }
     setListaParcelas(lista)
-  }, [open, initialValor, initialParcelas, initialTaxa, initialFirstDueDate])
+  }, [open, initialValor, initialParcelas, initialTaxa, initialAdminFee, initialFirstDueDate])
 
   const displayName =
     customer?.full_name ?? customer?.legal_name ?? customer?.trade_name ?? '—'
@@ -148,11 +135,12 @@ export function PopupSimulacao({
     const v = parseFloat(String(valor).replace(',', '.')) || 0
     const n = Math.max(1, parseInt(parcelas, 10) || 1)
     const t = parseFloat(String(taxa).replace(',', '.')) || 0
+    const a = parseFloat(String(adminFee).replace(',', '.')) || 0
     if (v <= 0) {
       setListaParcelas([])
       return
     }
-    const { parcela } = calcularParcela(v, n, t)
+    const { parcela } = calcularParcela(v, n, t, a)
     const baseDate = firstDueDate && /^\d{4}-\d{2}-\d{2}$/.test(firstDueDate)
       ? firstDueDate
       : addMonths(new Date().toISOString().slice(0, 10), 1)
@@ -168,18 +156,19 @@ export function PopupSimulacao({
   }
 
   function handleSalvarSelecao() {
-    onApply?.({ valor, parcelas, firstDueDate, taxa })
+    onApply?.({ valor, parcelas, firstDueDate, taxa, adminFee })
     onClose()
   }
 
   const valorNum = parseFloat(String(valor).replace(',', '.'))
   const parcelasNum = Math.max(1, parseInt(parcelas, 10) || 0) || 0
   const taxaNum = parseFloat(String(taxa).replace(',', '.')) || 0
+  const adminNum = parseFloat(String(adminFee).replace(',', '.')) || 0
   const valorFormatado = Number.isFinite(valorNum) && valorNum > 0 ? formatCurrency(valorNum) : (valor || '—')
   const taxaFormatada = taxa.trim() ? `${taxa.trim()}%` : '—'
   const previewParcela =
     Number.isFinite(valorNum) && valorNum > 0 && parcelasNum > 0
-      ? calcularParcela(valorNum, parcelasNum, taxaNum).parcela
+      ? calcularParcela(valorNum, parcelasNum, taxaNum, adminNum).parcela
       : 0
 
   return (
@@ -295,6 +284,17 @@ export function PopupSimulacao({
                     inputMode="decimal"
                     value={taxa}
                     onChange={(e) => { setTaxa(e.target.value); setListaParcelas([]) }}
+                    placeholder="0,00"
+                    className="h-[42px] w-full rounded-[8px] border border-[#e5e7eb] bg-white px-3 py-2.5 text-sm text-[#0f1419] placeholder:text-[#94a3b8] focus:border-[#1E3A8A] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/20"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-[#14181B]">Taxa administrativa (%)</label>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={adminFee}
+                    onChange={(e) => { setAdminFee(e.target.value); setListaParcelas([]) }}
                     placeholder="0,00"
                     className="h-[42px] w-full rounded-[8px] border border-[#e5e7eb] bg-white px-3 py-2.5 text-sm text-[#0f1419] placeholder:text-[#94a3b8] focus:border-[#1E3A8A] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/20"
                   />

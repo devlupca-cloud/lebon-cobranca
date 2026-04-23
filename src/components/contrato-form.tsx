@@ -952,6 +952,7 @@ export function ContratoForm({
         initialValor={form.contract_amount}
         initialParcelas={form.installments_count}
         initialTaxa={form.interest_rate}
+        initialAdminFee={form.admin_fee_rate}
         initialFirstDueDate={form.first_due_date || undefined}
         onApply={(v) => {
           setForm((f) => ({
@@ -960,6 +961,7 @@ export function ContratoForm({
             installments_count: v.parcelas,
             first_due_date: v.firstDueDate,
             interest_rate: v.taxa,
+            admin_fee_rate: v.adminFee,
           }))
           setSimulacaoOpen(false)
         }}

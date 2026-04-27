@@ -97,9 +97,9 @@ Nao aparece em rotas de listagem (2 niveis de breadcrumb). Para uma nova sub-rot
 
 ### Dados da empresa (hardcoded nos PDFs)
 
-Endereco oficial do CNPJ 30.082.816/0001-72 esta **duplicado** em 4 geradores (`src/lib/pdf/contract-pdf.ts`, `quitacao-pdf.ts`, `anuencia-pdf.ts`, `ficha-cadastral-pdf.ts`) na const `COMPANY`. Atual: **R. Adelino Cardana, 293 - Bloco C Sala 702, Centro, 06401-147, Barueri - SP, Tel 11 9.7020-0447**.
+Endereco oficial do CNPJ 30.082.816/0001-72 esta **duplicado** em 6 geradores (`src/lib/pdf/contract-pdf.ts`, `quitacao-pdf.ts`, `anuencia-pdf.ts`, `ficha-cadastral-pdf.ts`, `acordo-pdf.ts`, `recibo-pdf.ts`) na const `COMPANY`. Atual: **R. Adelino Cardana, 293 - Bloco C Sala 702, Centro, 06401-147, Barueri - SP, Tel 11 9.7020-0447**.
 
-Se mudar endereco, editar os 4 arquivos. O `contract-pdf.ts` tambem tem 3 mencoes a **Barueri** em texto corrido (Clausula 6, fechamento, data de assinatura) que precisam trocar juntas.
+Se mudar endereco, editar os 6 arquivos. O `contract-pdf.ts` tambem tem 3 mencoes a **Barueri** em texto corrido (Clausula 6, fechamento, data de assinatura) que precisam trocar juntas.
 
 Imagens do PDF (`public/pdf/watermark-lebon.jpg` marca d'agua + `public/pdf/logo-mo.jpg` logo M/O rodape) sao carregadas via `fetch` dentro de `generateContractPdf` -- a funcao e **async**.
 
@@ -130,7 +130,7 @@ As regras em `.cursor/rules/` (`design-system.mdc`, `use-libraries.mdc`) sao o e
 
 ## Paginas ja migradas
 
-Login, cadastro, home, clientes (listagem/cadastro/edicao/detalhes), contratos (listagem/novo/detalhes/edicao), inadimplentes, simulacao, fluxo de caixa, extrato financeiro, gerar documentos, financiamento, cheque financiamento, emprestimos, cadastro geral, base de calculo, cadastrar fluxo de caixa, cadastrar acesso, perfil, configuracoes.
+Login, cadastro, home, clientes (listagem/cadastro/edicao/detalhes), contratos (listagem/novo/detalhes/edicao), inadimplentes, simulacao, fluxo de caixa, extrato financeiro, gerar documentos, financiamento, cheque financiamento (rota: `xeque-financiamento` -- nome com X e resquicio do FlutterFlow), emprestimos, cadastro geral, base de calculo, cadastrar fluxo de caixa, cadastrar acesso, perfil, configuracoes.
 
 ## Fluxos de negocio principais
 
@@ -205,5 +205,5 @@ E automatica: `getOverdueInstallments` em `src/lib/supabase/installments.ts` bus
 - **Sem `any`:** Tipos explicitos sempre (tipos em `src/types/database.ts`)
 - **Design tokens:** Nunca hardcodar Tailwind para algo que tem constante em `design.ts`
 - **Bibliotecas:** Priorizar libs prontas (`react-icons`, `jspdf`, formatacao, validacao) em vez de reimplementar
-- **Componentes compartilhados:** Formularios reutilizaveis em `src/components/` (`cliente-form.tsx`, `contrato-form.tsx`), popups (`popup-*.tsx`), UI primitivos em `src/components/ui/` com barrel export: `import { Button, Input, Modal, ConfirmModal, Loading, LoadingScreen, TablePagination } from '@/components/ui'`
+- **Componentes compartilhados:** Formularios reutilizaveis em `src/components/` (`cliente-form.tsx`, `contrato-form.tsx`), popups (`popup-*.tsx`), UI primitivos em `src/components/ui/` com barrel export: `import { Button, ConfirmModal, CurrencyInput, Input, Loading, LoadingScreen, Modal, TablePagination } from '@/components/ui'`
 - **Testes:** o projeto **ainda nao tem** testes automatizados. Stack definida para quando forem adicionados: **Vitest + React Testing Library** (ver `.claude/rules/qa.md`). Nao introduzir outra stack de teste sem alinhar com o usuario.

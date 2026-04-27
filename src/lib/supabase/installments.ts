@@ -45,7 +45,9 @@ export type OverdueInstallmentRow = {
 
 /**
  * Busca parcelas vencidas (due_date < hoje e não quitadas) da empresa.
- * Considera inadimplente quando due_date < hoje e amount_paid < amount.
+ * Considera inadimplente quando due_date < hoje, amount_paid < amount e a
+ * parcela está ativa (status OPEN/PARTIAL/OVERDUE). Renegociadas, pagas
+ * e canceladas são excluídas.
  */
 export async function getOverdueInstallments(
   companyId: string
@@ -86,6 +88,11 @@ export async function getOverdueInstallments(
     )
     .eq('company_id', companyId)
     .is('deleted_at', null)
+    .in('status_id', [
+      INSTALLMENT_STATUS.OPEN,
+      INSTALLMENT_STATUS.PARTIAL,
+      INSTALLMENT_STATUS.OVERDUE,
+    ])
     .lt('due_date', today)
     .order('due_date', { ascending: true })
 

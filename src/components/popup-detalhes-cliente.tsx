@@ -44,12 +44,12 @@ export function PopupDetalhesCliente({
     setHydratedAddress(null)
     if (!open || !customer?.id) return
     let cancelled = false
-    getCustomerById(customer.id)
+    getCustomerById(customer.id, customer.company_id)
       .then(async (full) => {
         if (cancelled || !full) return
         setHydrated({ ...customer, ...full })
         if (full.address_id) {
-          const addr = await getAddressById(full.address_id)
+          const addr = await getAddressById(full.address_id, customer.company_id)
           if (!cancelled) setHydratedAddress(addr)
         }
       })

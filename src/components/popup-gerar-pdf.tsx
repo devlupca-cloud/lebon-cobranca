@@ -66,7 +66,7 @@ export function PopupGerarPdf({ open, onClose, contractId, type = 'confissao' }:
         return
       }
 
-      const customer = await getCustomerById(contract.customer_id)
+      const customer = await getCustomerById(contract.customer_id, companyId)
       if (!customer) {
         setError('Cliente não encontrado.')
         return
@@ -79,9 +79,9 @@ export function PopupGerarPdf({ open, onClose, contractId, type = 'confissao' }:
       }
 
       const address = customer.address_id
-        ? await getAddressById(customer.address_id)
+        ? await getAddressById(customer.address_id, companyId)
         : null
-      const installments = await getInstallmentsByContract(contractId)
+      const installments = await getInstallmentsByContract(contractId, companyId)
 
       if (type === 'acordo') {
         const agreementInstallments = installments.filter(

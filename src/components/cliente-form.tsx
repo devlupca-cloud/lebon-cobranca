@@ -580,7 +580,7 @@ export function ClienteForm({ mode, customerId, initialData }: ClienteFormProps)
                     className="flex flex-wrap items-center justify-between gap-2 rounded-[8px] border border-[#E0E3E7] bg-[#f1f4f8] px-4 py-2"
                   >
                     <a
-                      href={f.file_url}
+                      href={f.signed_url ?? f.file_url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1.5 font-medium text-[#1E3A8A] hover:underline"

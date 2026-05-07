@@ -156,13 +156,15 @@ export async function getContractsFiltered(
 }
 
 export async function getInstallmentsByContract(
-  contractId: string
+  contractId: string,
+  companyId: string
 ): Promise<ContractInstallment[]> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('contract_installments')
     .select('*')
     .eq('contract_id', contractId)
+    .eq('company_id', companyId)
     .is('deleted_at', null)
     .order('installment_number', { ascending: true })
 

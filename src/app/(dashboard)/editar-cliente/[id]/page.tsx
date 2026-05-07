@@ -2,6 +2,7 @@
 
 import { ClienteForm, customerToFormState } from '@/components/cliente-form'
 import { getAddressById, getCustomerById } from '@/lib/supabase/customers'
+import { useCompanyId } from '@/hooks/use-company-id'
 import { useHeader } from '@/contexts/header-context'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -10,6 +11,7 @@ import { useEffect, useState } from 'react'
 export default function EditarClientePage() {
   const params = useParams()
   const id = typeof params.id === 'string' ? params.id : null
+  const { companyId } = useCompanyId()
   const [initialData, setInitialData] = useState<ReturnType<typeof customerToFormState> | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
@@ -35,19 +37,20 @@ export default function EditarClientePage() {
       setNotFound(true)
       return
     }
+    if (!companyId) return
     let cancelled = false
     setLoading(true)
     setNotFound(false)
     async function load() {
       try {
-        const customer = await getCustomerById(id!)
+        const customer = await getCustomerById(id!, companyId!)
         if (cancelled || !customer) {
           if (!cancelled) setNotFound(true)
           return
         }
         let address = null
         if (customer.address_id) {
-          address = await getAddressById(customer.address_id)
+          address = await getAddressById(customer.address_id, companyId!)
         }
         if (!cancelled) {
           setInitialData(customerToFormState(customer, address ?? undefined))
@@ -62,7 +65,7 @@ export default function EditarClientePage() {
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [id, companyId])
 
   if (loading) {
     return (

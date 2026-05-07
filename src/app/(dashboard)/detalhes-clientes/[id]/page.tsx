@@ -82,14 +82,14 @@ export default function DetalhesClientePage() {
     setLoading(true)
     setError(null)
     try {
-      const c = await getCustomerById(id)
+      const c = await getCustomerById(id, companyId)
       if (!c) {
         setError('Cliente não encontrado.')
         return
       }
       setCustomer(c)
       if (c.address_id) {
-        const addr = await getAddressById(c.address_id)
+        const addr = await getAddressById(c.address_id, companyId)
         setAddress(addr)
       }
     } catch (e) {
@@ -301,7 +301,7 @@ export default function DetalhesClientePage() {
               {files.map((f) => (
                 <li key={f.id} className="flex items-center justify-between rounded-[8px] border border-[#E0E3E7] bg-[#f1f4f8] px-4 py-2">
                   <a
-                    href={f.file_url}
+                    href={f.signed_url ?? f.file_url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="font-medium text-[#1E3A8A] hover:underline"

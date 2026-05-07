@@ -74,6 +74,12 @@ export type Contract = {
   contract_type_id: number
   status_id: number
   notes: string | null
+  /** Tipo do acordo (`amigavel` | `juridico`). NULL = contrato comum. */
+  agreement_type?: 'amigavel' | 'juridico' | null
+  /** Numero do processo judicial — preenchido apenas quando agreement_type='juridico'. */
+  process_number?: string | null
+  /** Contrato antigo que originou este acordo (auto-FK em contracts.id). */
+  original_contract_id?: string | null
 }
 
 /** Contrato com joins (retorno de get_contracts RPC ou queries com select expandido) */
@@ -166,11 +172,20 @@ export type CustomerFile = {
   company_id: string
   customer_id: string
   file_type_id: number
+  /**
+   * Path no Storage (uploads novos) ou URL publica completa (uploads antigos
+   * antes da migracao para signed URLs). Use `signed_url` para renderizacao.
+   */
   file_url: string
   file_name: string | null
   notes: string | null
   created_at: string
   deleted_at: string | null
+  /**
+   * URL renderizavel (signed URL com TTL de 1h ou URL publica legada).
+   * Preenchida pelas funcoes `getCustomerFiles`/`getContractFiles`.
+   */
+  signed_url?: string | null
 }
 
 export type ContractFile = {
@@ -178,11 +193,16 @@ export type ContractFile = {
   company_id: string
   contract_id: string
   file_type_id: number
+  /**
+   * Path no Storage (uploads novos) ou URL publica completa (uploads antigos
+   * antes da migracao para signed URLs). Use `signed_url` para renderizacao.
+   */
   file_url: string
   file_name: string | null
   notes: string | null
   created_at: string
   deleted_at: string | null
+  signed_url?: string | null
 }
 
 // ──────────────────────────── Company / Users ─────────────────────

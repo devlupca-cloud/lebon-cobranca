@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
+import { getSignedPhotoUrl } from '@/lib/supabase/storage'
 
 /**
  * IMPORTANTE – E-mail do usuário logado:
@@ -11,7 +12,13 @@ export type Profile = {
   company_id: string
   name: string | null
   email: string | null
+  /**
+   * Path no Storage (uploads novos) ou URL publica completa (legado).
+   * Use `photo_signed_url` para renderizacao.
+   */
   photo_user: string | null
+  /** URL renderizavel (signed URL ou URL publica legada). */
+  photo_signed_url: string | null
 }
 
 /**
@@ -40,11 +47,13 @@ export async function getMyProfileRpc(): Promise<Profile | null> {
   if (error || data == null) return null
   const row = data as GetMyProfileRpcRow | null
   if (!row?.company_id) return null
+  const photoSignedUrl = await getSignedPhotoUrl(row.photo_user)
   return {
     company_id: row.company_id,
     name: row.name ?? null,
     email: row.email ?? null,
     photo_user: row.photo_user ?? null,
+    photo_signed_url: photoSignedUrl,
   }
 }
 
@@ -67,11 +76,13 @@ export async function getProfile(): Promise<Profile | null> {
     .maybeSingle()
 
   if (!errId && byId) {
+    const photoSignedUrl = await getSignedPhotoUrl(byId.photo_user ?? null)
     return {
       company_id: byId.company_id,
       name: byId.name ?? null,
       email: byId.email ?? null,
       photo_user: byId.photo_user ?? null,
+      photo_signed_url: photoSignedUrl,
     }
   }
 
@@ -84,20 +95,23 @@ export async function getProfile(): Promise<Profile | null> {
     .maybeSingle()
 
   if (!errUser && byUserId) {
+    const photoSignedUrl = await getSignedPhotoUrl(byUserId.photo_user ?? null)
     return {
       company_id: byUserId.company_id,
       name: byUserId.name ?? null,
       email: byUserId.email ?? null,
       photo_user: byUserId.photo_user ?? null,
+      photo_signed_url: photoSignedUrl,
     }
   }
   return null
 }
 
 /**
- * Atualiza a URL da foto do usuário em company_users.
+ * Atualiza a referencia da foto em company_users. Aceita PATH (preferido,
+ * para uso com signed URLs) ou URL completa (legado).
  */
-export async function updateProfilePhoto(photoUrl: string): Promise<void> {
+export async function updateProfilePhoto(photoRef: string): Promise<void> {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user?.id) throw new Error('Usuário não autenticado')
@@ -105,7 +119,7 @@ export async function updateProfilePhoto(photoUrl: string): Promise<void> {
   // Tenta atualizar por id; usa .select() para verificar se alguma linha foi afetada
   const { data: byId, error: errId } = await supabase
     .from('company_users')
-    .update({ photo_user: photoUrl })
+    .update({ photo_user: photoRef })
     .eq('id', user.id)
     .select('id')
 
@@ -114,7 +128,7 @@ export async function updateProfilePhoto(photoUrl: string): Promise<void> {
   // Fallback: tenta por user_id
   const { data: byUserId, error: errUser } = await supabase
     .from('company_users')
-    .update({ photo_user: photoUrl })
+    .update({ photo_user: photoRef })
     .eq('user_id', user.id)
     .select('id')
 

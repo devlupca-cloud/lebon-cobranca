@@ -1,38 +1,19 @@
 import { createClient } from '@/lib/supabase/client'
 import type { CustomerFile, ContractFile } from '@/types/database'
+import {
+  BUCKET_FILE,
+  resolveStorageRefs,
+  uploadFile as uploadFileToStorage,
+} from '@/lib/supabase/storage'
 
-/** Nome do bucket de documentos no Supabase Storage. Crie em Storage com este nome ou defina NEXT_PUBLIC_SUPABASE_BUCKET_DOCUMENTS. */
-const BUCKET =
-  typeof process.env.NEXT_PUBLIC_SUPABASE_BUCKET_DOCUMENTS === 'string' &&
-  process.env.NEXT_PUBLIC_SUPABASE_BUCKET_DOCUMENTS.length > 0
-    ? process.env.NEXT_PUBLIC_SUPABASE_BUCKET_DOCUMENTS
-    : 'documents'
-
-// ──────────────────────────── Helpers ──────────────────────────────
-
-async function uploadToStorage(
-  path: string,
-  file: File
-): Promise<string> {
-  const supabase = createClient()
-  const { data, error } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, file, { cacheControl: '3600', upsert: false })
-
-  if (error) throw error
-
-  const { data: { publicUrl } } = supabase.storage
-    .from(BUCKET)
-    .getPublicUrl(data.path)
-
-  return publicUrl
-}
-
-async function removeFromStorage(path: string): Promise<void> {
-  const supabase = createClient()
-  const { error } = await supabase.storage.from(BUCKET).remove([path])
-  if (error) throw error
-}
+/**
+ * Coluna `file_url` na tabela `*_files` armazena o PATH no Storage
+ * (ex: `customers/{companyId}/{customerId}/{ts}_{filename}`), nao mais a
+ * URL publica. Para renderizacao usamos `signed_url` (gerada on-demand
+ * em `getCustomerFiles` / `getContractFiles`). Dados antigos com URL
+ * publica continuam funcionando — `resolveStorageRef` detecta o prefixo
+ * `http(s)://` e retorna como esta.
+ */
 
 // ──────────────────────────── Customer files ──────────────────────
 
@@ -44,7 +25,7 @@ export async function uploadCustomerFile(
   notes?: string | null
 ): Promise<CustomerFile> {
   const path = `customers/${companyId}/${customerId}/${Date.now()}_${file.name}`
-  const fileUrl = await uploadToStorage(path, file)
+  const storedPath = await uploadFileToStorage(path, file)
 
   const supabase = createClient()
   const { data, error } = await supabase
@@ -53,7 +34,7 @@ export async function uploadCustomerFile(
       company_id: companyId,
       customer_id: customerId,
       file_type_id: fileTypeId,
-      file_url: fileUrl,
+      file_url: storedPath,
       file_name: file.name,
       notes: notes ?? null,
     })
@@ -86,8 +67,8 @@ export async function uploadCustomerFilesBatch(
 
   const uploads = items.map((item, index) => {
     const path = `${basePath}/${timestamp}_${index}_${item.file.name}`
-    return uploadToStorage(path, item.file).then((fileUrl) => ({
-      fileUrl,
+    return uploadFileToStorage(path, item.file).then((storedPath) => ({
+      storedPath,
       fileTypeId: item.fileTypeId,
       file_name: item.file.name,
       notes: item.notes ?? null,
@@ -101,7 +82,7 @@ export async function uploadCustomerFilesBatch(
     company_id: companyId,
     customer_id: customerId,
     file_type_id: r.fileTypeId,
-    file_url: r.fileUrl,
+    file_url: r.storedPath,
     file_name: r.file_name,
     notes: r.notes,
   }))
@@ -129,7 +110,9 @@ export async function getCustomerFiles(
     .order('created_at', { ascending: false })
 
   if (error) throw error
-  return (data ?? []) as CustomerFile[]
+  const rows = (data ?? []) as CustomerFile[]
+  const withUrls = await resolveStorageRefs(rows, 'file_url', BUCKET_FILE)
+  return withUrls as CustomerFile[]
 }
 
 // ──────────────────────────── Contract files ─────────────────────
@@ -142,7 +125,7 @@ export async function uploadContractFile(
   notes?: string | null
 ): Promise<ContractFile> {
   const path = `contracts/${companyId}/${contractId}/${Date.now()}_${file.name}`
-  const fileUrl = await uploadToStorage(path, file)
+  const storedPath = await uploadFileToStorage(path, file)
 
   const supabase = createClient()
   const { data, error } = await supabase
@@ -151,7 +134,7 @@ export async function uploadContractFile(
       company_id: companyId,
       contract_id: contractId,
       file_type_id: fileTypeId,
-      file_url: fileUrl,
+      file_url: storedPath,
       file_name: file.name,
       notes: notes ?? null,
     })
@@ -176,7 +159,9 @@ export async function getContractFiles(
     .order('created_at', { ascending: false })
 
   if (error) throw error
-  return (data ?? []) as ContractFile[]
+  const rows = (data ?? []) as ContractFile[]
+  const withUrls = await resolveStorageRefs(rows, 'file_url', BUCKET_FILE)
+  return withUrls as ContractFile[]
 }
 
 // ──────────────────────────── Delete file (soft) ─────────────────

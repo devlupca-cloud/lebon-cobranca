@@ -82,19 +82,15 @@ export function PopupQuitacao({
   const [confirmQuitarOpen, setConfirmQuitarOpen] = useState(false)
 
   const fetchData = useCallback(async () => {
-    if (!contractId || !open) return
+    if (!contractId || !open || !companyId) return
     setLoading(true)
     setError(null)
     setQuitacaoMessage(null)
     try {
-      const list = await getInstallmentsByContract(contractId)
+      const list = await getInstallmentsByContract(contractId, companyId)
       setInstallments(list)
-      if (companyId) {
-        const contract = await getContractById(contractId, companyId)
-        setCustomerId(contract?.customer_id ?? null)
-      } else {
-        setCustomerId(null)
-      }
+      const contract = await getContractById(contractId, companyId)
+      setCustomerId(contract?.customer_id ?? null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao carregar parcelas.')
     } finally {
@@ -530,12 +526,13 @@ function PaymentHistory({
   const [reciboError, setReciboError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!companyId) return
     let cancelled = false
-    getPaymentsByInstallment(installment.id).then((list) => {
+    getPaymentsByInstallment(installment.id, companyId).then((list) => {
       if (!cancelled) setPayments(list)
     }).finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [installment.id])
+  }, [installment.id, companyId])
 
   async function handleBaixarRecibo(payment: InstallmentPayment) {
     if (!companyId || !contractId) return
@@ -544,7 +541,7 @@ function PaymentHistory({
     try {
       const contract = await getContractById(contractId, companyId)
       if (!contract) throw new Error('Contrato não encontrado.')
-      const customer = await getCustomerById(contract.customer_id)
+      const customer = await getCustomerById(contract.customer_id, companyId)
       if (!customer) throw new Error('Cliente não encontrado.')
       generateReciboPdf({ contract, customer, installment, payment })
     } catch (e) {

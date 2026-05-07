@@ -66,14 +66,15 @@ export function PopupParcelacliente({
   }, [customer?.id, customer?.company_id])
 
   const fetchInstallments = useCallback(async (contractId: string) => {
+    if (!customer?.company_id) return
     setLoadingInstallments(true)
     try {
-      const list = await getInstallmentsByContract(contractId)
+      const list = await getInstallmentsByContract(contractId, customer.company_id)
       setInstallments(list)
     } finally {
       setLoadingInstallments(false)
     }
-  }, [])
+  }, [customer?.company_id])
 
   useEffect(() => {
     if (!open) return

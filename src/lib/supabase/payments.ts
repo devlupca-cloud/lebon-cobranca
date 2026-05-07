@@ -69,13 +69,15 @@ export async function quitContract(
 // ──────────────────────────── Query payments ──────────────────────
 
 export async function getPaymentsByInstallment(
-  installmentId: string
+  installmentId: string,
+  companyId: string
 ): Promise<InstallmentPayment[]> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('installment_payments')
     .select('*')
     .eq('installment_id', installmentId)
+    .eq('company_id', companyId)
     .order('paid_at', { ascending: false })
 
   if (error) throw error
@@ -83,7 +85,8 @@ export async function getPaymentsByInstallment(
 }
 
 export async function getPaymentsByContract(
-  contractId: string
+  contractId: string,
+  companyId: string
 ): Promise<InstallmentPayment[]> {
   const supabase = createClient()
 
@@ -92,6 +95,7 @@ export async function getPaymentsByContract(
     .from('contract_installments')
     .select('id')
     .eq('contract_id', contractId)
+    .eq('company_id', companyId)
     .is('deleted_at', null)
 
   if (iErr) throw iErr
@@ -103,6 +107,7 @@ export async function getPaymentsByContract(
     .from('installment_payments')
     .select('*')
     .in('installment_id', ids)
+    .eq('company_id', companyId)
     .order('paid_at', { ascending: false })
 
   if (error) throw error

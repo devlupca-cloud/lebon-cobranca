@@ -48,8 +48,8 @@ export default function Profile06Page() {
       if (!u?.id) throw new Error('Usuário não autenticado')
       const ext = file.name.split('.').pop() ?? 'jpg'
       const path = `photo/${u.id}/${Date.now()}.${ext}`
-      const url = await uploadPhotoUser(path, file)
-      await updateProfilePhoto(url)
+      const storedPath = await uploadPhotoUser(path, file)
+      await updateProfilePhoto(storedPath)
       await refetch()
       setMessage({ type: 'success', text: 'Foto atualizada com sucesso.' })
     } catch (err) {
@@ -67,7 +67,7 @@ export default function Profile06Page() {
 
   const displayName = profile?.name ?? authEmail ?? 'Usuário'
   const displayEmail = authEmail ?? profile?.email ?? '—'
-  const photoUrl = profile?.photo_user
+  const photoUrl = profile?.photo_signed_url
   const showPhoto = photoUrl && !photoError
   const initials = displayName
     .split(/\s+/)

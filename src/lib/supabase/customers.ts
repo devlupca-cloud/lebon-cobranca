@@ -112,12 +112,16 @@ async function getCustomersWithDateFilter(
   return { total: count ?? 0, limit, offset, data: rows }
 }
 
-export async function getCustomerById(id: string): Promise<Customer | null> {
+export async function getCustomerById(
+  id: string,
+  companyId: string
+): Promise<Customer | null> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('customers')
     .select('*')
     .eq('id', id)
+    .eq('company_id', companyId)
     .is('deleted_at', null)
     .maybeSingle()
 
@@ -136,12 +140,16 @@ export type AddressRow = {
   additional_info: string | null
 }
 
-export async function getAddressById(id: string): Promise<AddressRow | null> {
+export async function getAddressById(
+  id: string,
+  companyId: string
+): Promise<AddressRow | null> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('addresses')
     .select('id, street, number, neighbourhood, city, state, zip_code, additional_info')
     .eq('id', id)
+    .eq('company_id', companyId)
     .maybeSingle()
   if (error) throw error
   return data as AddressRow | null
@@ -376,7 +384,7 @@ export async function updateCustomer(
   data: UpdateCustomerInput
 ): Promise<Customer> {
   const supabase = createClient()
-  const existing = await getCustomerById(customerId)
+  const existing = await getCustomerById(customerId, companyId)
   if (!existing) throw new Error('Cliente não encontrado.')
   let addressId: string | null = existing.address_id
   if (hasAddressFields(data.address)) {

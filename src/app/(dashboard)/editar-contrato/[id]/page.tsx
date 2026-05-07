@@ -129,7 +129,7 @@ export default function EditarContratoPage() {
 
         // Load guarantor if present (considera PF/PJ)
         if (contract.guarantor_customer_id) {
-          const guarantor = await getCustomerById(contract.guarantor_customer_id)
+          const guarantor = await getCustomerById(contract.guarantor_customer_id, companyId!)
           if (!cancelled && guarantor) {
             setInitialGuarantor(customerToAutocompleteItem({
               id: guarantor.id,

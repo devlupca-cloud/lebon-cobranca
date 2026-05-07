@@ -66,18 +66,18 @@ export function PopupHistoricoPagamento({
   const [generatingReciboId, setGeneratingReciboId] = useState<string | null>(null)
 
   const fetchPayments = useCallback(async () => {
-    if (!installment) return
+    if (!installment || !companyId) return
     setLoading(true)
     setError(null)
     try {
-      const list = await getPaymentsByInstallment(installment.id)
+      const list = await getPaymentsByInstallment(installment.id, companyId)
       setPayments(list)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erro ao carregar pagamentos.')
     } finally {
       setLoading(false)
     }
-  }, [installment])
+  }, [installment, companyId])
 
   useEffect(() => {
     if (open && installment) fetchPayments()
@@ -113,7 +113,7 @@ export function PopupHistoricoPagamento({
     try {
       const contract = await getContractById(installment.contract_id, companyId)
       if (!contract) throw new Error('Contrato não encontrado.')
-      const customer = await getCustomerById(contract.customer_id)
+      const customer = await getCustomerById(contract.customer_id, companyId)
       if (!customer) throw new Error('Cliente não encontrado.')
       generateReciboPdf({
         contract,

@@ -300,9 +300,9 @@ export function DashboardHeader() {
             aria-label="Menu do usuário"
           >
             {/* Avatar: fallback para iniciais se a foto não carregar */}
-            {profile?.photo_user && !avatarError ? (
+            {profile?.photo_signed_url && !avatarError ? (
               <img
-                src={profile.photo_user}
+                src={profile.photo_signed_url}
                 alt=""
                 className="h-8 w-8 rounded-full object-cover ring-2 ring-white shadow-sm"
                 onError={() => setAvatarError(true)}

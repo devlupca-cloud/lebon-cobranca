@@ -144,7 +144,7 @@ export default function GerarDocumentosPage() {
         setGenError('Contrato não encontrado.')
         return
       }
-      const customer = await getCustomerById(contract.customer_id)
+      const customer = await getCustomerById(contract.customer_id, companyId)
       if (!customer) {
         setGenError('Cliente não encontrado.')
         return
@@ -157,8 +157,8 @@ export default function GerarDocumentosPage() {
       const contractNum = contract.contract_number ?? '—'
 
       if (selectedDocType === 'confissao') {
-        const address = customer.address_id ? await getAddressById(customer.address_id) : null
-        const installments = await getInstallmentsByContract(selectedContractId)
+        const address = customer.address_id ? await getAddressById(customer.address_id, companyId) : null
+        const installments = await getInstallmentsByContract(selectedContractId, companyId)
         const result = await generateContractPdf(
           { contract, customer, address, installments },
           { returnBlob: true }
@@ -220,14 +220,14 @@ export default function GerarDocumentosPage() {
 
       if (selectedDocType === 'ficha_cadastral') {
         const customerAddress = customer.address_id
-          ? await getAddressById(customer.address_id)
+          ? await getAddressById(customer.address_id, companyId)
           : null
         let guarantor: Awaited<ReturnType<typeof getCustomerById>> = null
         let guarantorAddress: Awaited<ReturnType<typeof getAddressById>> = null
         if (contract.guarantor_customer_id) {
-          guarantor = await getCustomerById(contract.guarantor_customer_id)
+          guarantor = await getCustomerById(contract.guarantor_customer_id, companyId)
           if (guarantor?.address_id) {
-            guarantorAddress = await getAddressById(guarantor.address_id)
+            guarantorAddress = await getAddressById(guarantor.address_id, companyId)
           }
         }
         const result = generateFichaCadastralPdf(

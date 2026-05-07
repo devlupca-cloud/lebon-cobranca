@@ -382,10 +382,10 @@ export function ContratoForm({
     try {
       const contract = await getContractById(contractId, companyId)
       if (!contract) throw new Error('Contrato não encontrado.')
-      const customer = await getCustomerById(contract.customer_id)
+      const customer = await getCustomerById(contract.customer_id, companyId)
       if (!customer) throw new Error('Cliente não encontrado.')
-      const address = customer.address_id ? await getAddressById(customer.address_id) : null
-      const installments = await getInstallmentsByContract(contractId)
+      const address = customer.address_id ? await getAddressById(customer.address_id, companyId) : null
+      const installments = await getInstallmentsByContract(contractId, companyId)
       await generateContractPdf({ contract, customer, address, installments })
     } catch (e) {
       setPdfError(e instanceof Error ? e.message : 'Erro ao gerar PDF.')

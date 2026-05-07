@@ -127,7 +127,7 @@ export default function DetalhesContratoPage() {
     try {
       const [contractData, installmentsData] = await Promise.all([
         getContractById(id, companyId),
-        getInstallmentsByContract(id),
+        getInstallmentsByContract(id, companyId),
       ])
       if (!contractData) {
         setNotFound(true)

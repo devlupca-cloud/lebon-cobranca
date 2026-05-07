@@ -115,7 +115,7 @@ function NovoContratoContent() {
     }
     let cancelled = false
     setLoadingCustomer(true)
-    getCustomerById(customerIdParam)
+    getCustomerById(customerIdParam, companyId)
       .then((c) => {
         if (!cancelled && c) setInitialCustomer(toAutocompleteItem(c))
         else if (!cancelled) setInitialCustomer(null)

@@ -7,6 +7,7 @@ import { useHeader } from '@/contexts/header-context'
 import { useCompanyId } from '@/hooks/use-company-id'
 import { getOverdueInstallments } from '@/lib/supabase/installments'
 import type { OverdueInstallmentRow } from '@/lib/supabase/installments'
+import { calculateOverdueValue } from '@/lib/installments-overdue'
 import { buttonPrimary, buttonSecondary, card, input, label as labelClass } from '@/lib/design'
 import { formatCPFOrCNPJ } from '@/lib/format'
 import Link from 'next/link'
@@ -41,7 +42,14 @@ type ContractOverdueCard = {
   contractAmount: number | null
   installmentAmount: number | null
   installmentsCount: number
+  /** Soma dos saldos em aberto (sem multa+juros) */
   totalOpen: number
+  /** Soma de multa (10%) das parcelas atrasadas */
+  totalFine: number
+  /** Soma de juros (2% am pro-rata) das parcelas atrasadas */
+  totalInterest: number
+  /** Total atualizado (saldo + multa + juros) — o que entra no acordo */
+  totalUpdated: number
   maxDaysOverdue: number
   situacaoLabel: string
 }
@@ -114,10 +122,17 @@ function groupRowsByContract(rows: OverdueInstallmentRow[]): ContractOverdueCard
   const cards: ContractOverdueCard[] = []
   for (const [contractId, data] of byContract.entries()) {
     let totalOpen = 0
+    let totalFine = 0
+    let totalInterest = 0
+    let totalUpdated = 0
     let maxDays = 0
     for (const r of data.rows) {
-      totalOpen += r.amount - r.amount_paid
-      maxDays = Math.max(maxDays, daysOverdue(r.due_date))
+      const v = calculateOverdueValue(r)
+      totalOpen += v.amountOpen
+      totalFine += v.fineAmount
+      totalInterest += v.interestAmount
+      totalUpdated += v.totalUpdated
+      maxDays = Math.max(maxDays, v.daysOverdue)
     }
     cards.push({
       contractId,
@@ -130,6 +145,9 @@ function groupRowsByContract(rows: OverdueInstallmentRow[]): ContractOverdueCard
       installmentAmount: data.installmentAmount,
       installmentsCount: data.installmentsCount,
       totalOpen,
+      totalFine,
+      totalInterest,
+      totalUpdated,
       maxDaysOverdue: maxDays,
       situacaoLabel: situacaoFromDays(maxDays),
     })
@@ -179,7 +197,11 @@ export default function InadimplentesPage() {
 
   const cards = useMemo(() => groupRowsByContract(rows), [rows])
 
-  const totalOverdue = useMemo(() => cards.reduce((s, c) => s + c.totalOpen, 0), [cards])
+  /** Total em atraso ja COM multa 10% + juros 2% am pro-rata-dia (Clausula 4 do contrato). */
+  const totalOverdueUpdated = useMemo(
+    () => cards.reduce((s, c) => s + c.totalUpdated, 0),
+    [cards]
+  )
   const clientesCount = cards.length
   const clientes90Plus = useMemo(
     () => cards.filter((c) => c.maxDaysOverdue >= 90).length,
@@ -252,9 +274,12 @@ export default function InadimplentesPage() {
           <div className="mt-4 flex flex-wrap gap-8">
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-white/90">
-                Total em Atraso
+                Total em Atraso (atualizado)
               </p>
-              <p className="mt-1 text-2xl font-bold">{formatCurrency(totalOverdue)}</p>
+              <p className="mt-1 text-2xl font-bold">{formatCurrency(totalOverdueUpdated)}</p>
+              <p className="mt-1 text-[11px] text-white/80">
+                Saldo + multa 10% + juros 2% a.m. (Cláusula 4)
+              </p>
             </div>
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-white/90">
@@ -385,7 +410,12 @@ export default function InadimplentesPage() {
                   </p>
                   <div className="mt-3 flex flex-wrap gap-4">
                     <span className="font-semibold text-red-600">
-                      Valor Original: {formatCurrency(c.contractAmount ?? 0)}
+                      Em atraso (atualizado): {formatCurrency(c.totalUpdated)}
+                    </span>
+                    <span className="text-sm text-[#536471]">
+                      Saldo {formatCurrency(c.totalOpen)} + multa{' '}
+                      {formatCurrency(c.totalFine)} + juros{' '}
+                      {formatCurrency(c.totalInterest)}
                     </span>
                     <span className="font-semibold text-[#1E3A8A]">
                       Parcelamento: {c.installmentsCount}x {formatCurrency(c.installmentAmount ?? 0)}

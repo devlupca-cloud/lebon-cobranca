@@ -152,25 +152,49 @@ export type NewAgreementInstallment = {
   amount: number
 }
 
+export type AgreementType = 'amigavel' | 'juridico'
+
 export type CreateAgreementInput = {
   companyId: string
   contractId: string
   originalInstallmentIds: string[]
   newInstallments: NewAgreementInstallment[]
+  agreementType: AgreementType
+  /** Obrigatorio quando agreementType = 'juridico'. */
+  processNumber?: string | null
+  /** Total do acordo (soma das novas parcelas). Se NULL, RPC calcula. */
+  totalAmount?: number | null
+  /** Valor de cada parcela do acordo. Se NULL, RPC calcula. */
+  installmentAmount?: number | null
+  /** Primeira data de vencimento. Se NULL, RPC pega da primeira parcela. */
+  firstDueDate?: string | null
+  /** Juros simulados no acordo (informativo). */
+  interestRate?: number | null
+  /** Taxa admin simulada (informativo). */
+  adminFeeRate?: number | null
   notes?: string | null
 }
 
 export type CreateAgreementResult = {
-  contract_id: string
+  old_contract_id: string
+  new_contract_id: string
+  new_contract_number: string
+  agreement_type: AgreementType
+  process_number: string | null
   renegotiated_ids: string[]
   new_installment_ids: string[]
   new_count: number
 }
 
 /**
- * Cria um acordo de renegociação: marca as parcelas originais como RENEGOTIATED
- * e insere novas parcelas com origin=RENEGOTIATION no mesmo contrato.
- * Recalcula o saldo devedor do cliente.
+ * Cria acordo de renegociacao em CONTRATO NOVO separado (v2).
+ *
+ * - Marca o contrato antigo como RENEGOTIATED (status 5) e suas parcelas
+ *   selecionadas com status 6 (RENEGOTIATED).
+ * - Cria contrato novo com `original_contract_id` apontando pro antigo,
+ *   `agreement_type` e (se juridico) `process_number`.
+ * - Insere novas parcelas no contrato NOVO com origin RENEGOTIATION.
+ * - Recalcula `outstanding_balance` do cliente.
  */
 export async function createAgreement(
   input: CreateAgreementInput
@@ -181,6 +205,13 @@ export async function createAgreement(
     p_contract_id: input.contractId,
     p_original_installment_ids: input.originalInstallmentIds,
     p_new_installments: input.newInstallments,
+    p_agreement_type: input.agreementType,
+    p_process_number: input.processNumber ?? null,
+    p_total_amount: input.totalAmount ?? null,
+    p_installment_amount: input.installmentAmount ?? null,
+    p_first_due_date: input.firstDueDate ?? null,
+    p_interest_rate: input.interestRate ?? null,
+    p_admin_fee_rate: input.adminFeeRate ?? null,
     p_notes: input.notes ?? null,
   })
 

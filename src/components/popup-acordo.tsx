@@ -9,6 +9,7 @@ import {
   type OverdueInstallmentRow,
 } from '@/lib/supabase/installments'
 import { formatCurrency } from '@/lib/simulacao'
+import { calculateOverdueValue } from '@/lib/installments-overdue'
 
 export type PopupAcordoProps = {
   open: boolean
@@ -16,13 +17,6 @@ export type PopupAcordoProps = {
   contractId: string | null
   contractNumber: string | null
   customerName: string
-}
-
-function daysOverdue(dueDate: string): number {
-  const due = new Date(dueDate + 'T00:00:00')
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24))
 }
 
 function formatDateBR(isoDate: string): string {
@@ -54,7 +48,7 @@ export function PopupAcordo({
       setInstallments(list)
       // Pré-seleciona as que estão em atraso
       const preSelected = new Set(
-        list.filter((i) => daysOverdue(i.due_date) > 0).map((i) => i.id)
+        list.filter((i) => calculateOverdueValue(i).isOverdue).map((i) => i.id)
       )
       setSelected(preSelected)
     } catch (e) {
@@ -91,10 +85,15 @@ export function PopupAcordo({
     }
   }
 
+  /**
+   * Total selecionado = soma do valor ATUALIZADO (saldo + multa 10% + juros 2% am
+   * pro-rata-dia) de cada parcela selecionada. Esse valor e o "principal" que
+   * vai para a tela de simulacao do acordo.
+   */
   const totalSelected = useMemo(() => {
     return installments
       .filter((i) => selected.has(i.id))
-      .reduce((sum, i) => sum + (i.amount - i.amount_paid), 0)
+      .reduce((sum, i) => sum + calculateOverdueValue(i).totalUpdated, 0)
   }, [installments, selected])
 
   const selectedIds = useMemo(
@@ -174,17 +173,29 @@ export function PopupAcordo({
                   </th>
                   <th className="px-3 py-2 text-left">Parcela</th>
                   <th className="px-3 py-2 text-left">Vencimento</th>
-                  <th className="px-3 py-2 text-right">Valor</th>
-                  <th className="px-3 py-2 text-right">Pago</th>
                   <th className="px-3 py-2 text-right">Saldo</th>
+                  <th
+                    className="px-3 py-2 text-right"
+                    title="Multa de 10% aplicada uma vez quando a parcela atrasa (Cláusula 4 do contrato)"
+                  >
+                    Multa
+                  </th>
+                  <th
+                    className="px-3 py-2 text-right"
+                    title="Juros de 2% ao mês pro-rata-dia (Cláusula 4 do contrato)"
+                  >
+                    Juros
+                  </th>
+                  <th className="px-3 py-2 text-right font-semibold text-[#1E3A8A]">
+                    Total atualizado
+                  </th>
                   <th className="px-3 py-2 text-left">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {installments.map((inst) => {
                   const isSelected = selected.has(inst.id)
-                  const days = daysOverdue(inst.due_date)
-                  const balance = inst.amount - inst.amount_paid
+                  const updated = calculateOverdueValue(inst)
                   return (
                     <tr
                       key={inst.id}
@@ -205,21 +216,26 @@ export function PopupAcordo({
                       </td>
                       <td className="px-3 py-2">{inst.installment_number}</td>
                       <td className="px-3 py-2">{formatDateBR(inst.due_date)}</td>
-                      <td className="px-3 py-2 text-right">{formatCurrency(inst.amount)}</td>
                       <td className="px-3 py-2 text-right text-[#536471]">
-                        {formatCurrency(inst.amount_paid)}
+                        {formatCurrency(updated.amountOpen)}
                       </td>
-                      <td className="px-3 py-2 text-right font-medium">
-                        {formatCurrency(balance)}
+                      <td className="px-3 py-2 text-right text-[#536471]">
+                        {updated.fineAmount > 0 ? formatCurrency(updated.fineAmount) : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-right text-[#536471]">
+                        {updated.interestAmount > 0 ? formatCurrency(updated.interestAmount) : '—'}
+                      </td>
+                      <td className="px-3 py-2 text-right font-semibold text-[#1E3A8A]">
+                        {formatCurrency(updated.totalUpdated)}
                       </td>
                       <td className="px-3 py-2">
-                        {days > 0 ? (
+                        {updated.isOverdue ? (
                           <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
-                            {days} dias atraso
+                            {updated.daysOverdue} dias atraso
                           </span>
-                        ) : days === 0 ? (
-                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                            Vence hoje
+                        ) : updated.amountOpen === 0 ? (
+                          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700">
+                            Quitada
                           </span>
                         ) : (
                           <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">

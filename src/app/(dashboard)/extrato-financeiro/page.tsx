@@ -5,11 +5,13 @@ import { useHeader } from '@/contexts/header-context'
 import { getExtratoFinanceiroData, getRecentMovements } from '@/lib/supabase/reports'
 import type { ExtratoFinanceiroData, RecentMovement, MovementType } from '@/lib/supabase/reports'
 import { getContractsFiltered } from '@/lib/supabase/contracts'
+import { getOverdueInstallments } from '@/lib/supabase/installments'
+import { calculateOverdueValue } from '@/lib/installments-overdue'
 import type { ContractWithRelations, GetContractsResponse } from '@/types/database'
 import { CONTRACT_STATUS } from '@/types/enums'
 import { useCompanyId } from '@/hooks/use-company-id'
 import { card, input, tableHead, tableCell, tableCellMuted, buttonPrimary } from '@/lib/design'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   MdTrendingUp,
@@ -99,6 +101,10 @@ export default function ExtratoFinanceiroPage() {
   const [extrato, setExtrato] = useState<ExtratoFinanceiroData | null>(null)
   const [contracts, setContracts] = useState<GetContractsResponse | null>(null)
   const [movements, setMovements] = useState<RecentMovement[]>([])
+  /** Parcelas atrasadas — usadas para calcular valor atualizado por contrato. */
+  const [overduePerContract, setOverduePerContract] = useState<
+    Record<string, { totalUpdated: number; count: number; maxDays: number }>
+  >({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchInput, setSearchInput] = useState('')
@@ -119,10 +125,10 @@ export default function ExtratoFinanceiroPage() {
     setLoading(true)
     setError(null)
     try {
-      const [extratoData, contractsData, movementsData] = await Promise.all([
+      const [extratoData, contractsData, movementsData, overdueRows] = await Promise.all([
         getExtratoFinanceiroData(companyId),
-        // Pega ACTIVE e DRAFT: ambos precisam ficar visíveis no extrato — DRAFT
-        // com badge "Rascunho" para o usuário saber que falta ativar e gerar parcelas.
+        // Pega ACTIVE, DRAFT e RENEGOTIATED: ambos visiveis no extrato. Contratos
+        // RENEGOTIATED ficam como historico apos o acordo gerar um contrato novo.
         getContractsFiltered({
           companyId,
           statusId: null,
@@ -130,10 +136,25 @@ export default function ExtratoFinanceiroPage() {
           limit: 50,
         }),
         getRecentMovements(companyId, 20),
+        getOverdueInstallments(companyId),
       ])
       setExtrato(extratoData)
       setContracts(contractsData)
       setMovements(movementsData)
+
+      // Agrupa parcelas em atraso por contrato e calcula valor atualizado
+      // (saldo + multa 10% + juros 2% am pro-rata-dia, Clausula 4 do contrato).
+      const map: Record<string, { totalUpdated: number; count: number; maxDays: number }> = {}
+      for (const row of overdueRows) {
+        const v = calculateOverdueValue(row)
+        if (!v.isOverdue) continue
+        const cur = map[row.contract_id] ?? { totalUpdated: 0, count: 0, maxDays: 0 }
+        cur.totalUpdated += v.totalUpdated
+        cur.count += 1
+        cur.maxDays = Math.max(cur.maxDays, v.daysOverdue)
+        map[row.contract_id] = cur
+      }
+      setOverduePerContract(map)
     } catch (e) {
       console.error('[ExtratoFinanceiro] Erro ao carregar dados:', e)
       setError(e instanceof Error ? e.message : 'Erro ao carregar extrato financeiro. Verifique sua conexão e tente novamente.')
@@ -166,16 +187,25 @@ export default function ExtratoFinanceiroPage() {
     )
   }
 
-  const contractsList = (contracts?.data ?? []).filter(
-    (c) =>
-      c.status_id === CONTRACT_STATUS.ACTIVE ||
-      c.status_id === CONTRACT_STATUS.DRAFT
+  const contractsList = useMemo(
+    () =>
+      (contracts?.data ?? []).filter(
+        (c) =>
+          c.status_id === CONTRACT_STATUS.ACTIVE ||
+          c.status_id === CONTRACT_STATUS.DRAFT ||
+          c.status_id === CONTRACT_STATUS.RENEGOTIATED
+      ),
+    [contracts]
   )
   const totalContractAmount = contractsList.reduce(
     (sum, c) => sum + Number(c.total_amount ?? 0), 0
   )
   const totalInstallmentAmount = contractsList.reduce(
     (sum, c) => sum + Number(c.installment_amount ?? 0), 0
+  )
+  const totalOverdueUpdated = contractsList.reduce(
+    (sum, c) => sum + (overduePerContract[c.id]?.totalUpdated ?? 0),
+    0
   )
 
   const visibleMovements = movements.slice(0, 5)
@@ -292,19 +322,29 @@ export default function ExtratoFinanceiroPage() {
                     <th className={tableHead}>Valor</th>
                     <th className={tableHead}>Número Parcelas</th>
                     <th className={tableHead}>Valor Parcelas</th>
+                    <th
+                      className={tableHead}
+                      title="Saldo + multa 10% + juros 2% a.m. das parcelas em atraso (Cláusula 4 do contrato)"
+                    >
+                      Em atraso (atualizado)
+                    </th>
                     <th className={tableHead}>Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {contractsList.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className={tableCell + ' text-center text-[#536471]'}>
+                      <td colSpan={6} className={tableCell + ' text-center text-[#536471]'}>
                         Nenhum contrato encontrado.
                       </td>
                     </tr>
                   ) : (
                     contractsList.map((contract) => {
                       const isDraft = contract.status_id === CONTRACT_STATUS.DRAFT
+                      const isRenegotiated =
+                        contract.status_id === CONTRACT_STATUS.RENEGOTIATED
+                      const isAgreement = !!contract.agreement_type
+                      const overdue = overduePerContract[contract.id]
                       return (
                         <tr key={contract.id} className="border-t border-[#e5e7eb]">
                           <td className={tableCell + ' font-medium'}>
@@ -316,6 +356,26 @@ export default function ExtratoFinanceiroPage() {
                                   title="Contrato em rascunho: parcelas ainda não foram geradas"
                                 >
                                   Rascunho
+                                </span>
+                              )}
+                              {isRenegotiated && (
+                                <span
+                                  className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-semibold text-zinc-700"
+                                  title="Contrato renegociado — parcelas migradas para um novo contrato"
+                                >
+                                  Renegociado
+                                </span>
+                              )}
+                              {isAgreement && (
+                                <span
+                                  className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700"
+                                  title={
+                                    contract.agreement_type === 'juridico'
+                                      ? `Acordo jurídico${contract.process_number ? ` — Processo ${contract.process_number}` : ''}`
+                                      : 'Acordo amigável'
+                                  }
+                                >
+                                  Acordo {contract.agreement_type === 'juridico' ? 'jurídico' : 'amigável'}
                                 </span>
                               )}
                             </div>
@@ -332,6 +392,20 @@ export default function ExtratoFinanceiroPage() {
                               : '—'}
                           </td>
                           <td className={tableCell}>
+                            {overdue ? (
+                              <div>
+                                <span className="font-semibold text-red-600">
+                                  {formatCurrency(overdue.totalUpdated)}
+                                </span>
+                                <span className="ml-2 text-xs text-[#536471]">
+                                  ({overdue.count} parcela{overdue.count > 1 ? 's' : ''} · {overdue.maxDays}d)
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-[#536471]">—</span>
+                            )}
+                          </td>
+                          <td className={tableCell}>
                             <div className="flex items-center gap-1">
                               <button
                                 type="button"
@@ -341,7 +415,7 @@ export default function ExtratoFinanceiroPage() {
                               >
                                 <MdVisibility className="h-5 w-5" />
                               </button>
-                              {!isDraft && (
+                              {!isDraft && !isRenegotiated && (
                                 <button
                                   type="button"
                                   onClick={() => setPaymentContractId(contract.id)}
@@ -369,6 +443,9 @@ export default function ExtratoFinanceiroPage() {
                       <td className={tableCellMuted} />
                       <td className={tableCell + ' font-semibold'}>
                         {formatCurrency(totalInstallmentAmount)}
+                      </td>
+                      <td className={tableCell + ' font-semibold text-red-600'}>
+                        {totalOverdueUpdated > 0 ? formatCurrency(totalOverdueUpdated) : '—'}
                       </td>
                       <td className={tableCellMuted} />
                     </tr>

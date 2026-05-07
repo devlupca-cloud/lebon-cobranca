@@ -5,7 +5,16 @@ export const CONTRACT_STATUS = {
   ACTIVE: 2,
   CLOSED: 3,
   CANCELED: 4,
+  /** Contrato cujas parcelas foram renegociadas — fica historico, parcelas novas vao para outro contrato (com `original_contract_id` apontando aqui). */
+  RENEGOTIATED: 5,
 } as const
+
+export const AGREEMENT_TYPE = {
+  AMIGAVEL: 'amigavel',
+  JURIDICO: 'juridico',
+} as const
+
+export type AgreementType = (typeof AGREEMENT_TYPE)[keyof typeof AGREEMENT_TYPE]
 
 export const CONTRACT_CATEGORY = {
   FINANCING: 1,

@@ -4,11 +4,12 @@ import { ConfirmModal, LoadingScreen } from '@/components/ui'
 import { useHeader } from '@/contexts/header-context'
 import { useCompanyId } from '@/hooks/use-company-id'
 import { getExpenses, deleteExpense } from '@/lib/supabase/expenses'
+import { generateContasPagarPdf } from '@/lib/pdf/contas-pagar-pdf'
 import type { CompanyExpense } from '@/types/database'
-import { buttonPrimary, buttonSecondary, input, label as labelClass, tableCell, tableCellMuted, tableHead } from '@/lib/design'
+import { card, buttonPrimary, buttonSecondary, input, label as labelClass, tableCell, tableCellMuted, tableHead } from '@/lib/design'
 import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
-import { MdAdd, MdDelete, MdEdit, MdPlayArrow, MdVisibility } from 'react-icons/md'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { MdAdd, MdDelete, MdDescription, MdEdit, MdVisibility, MdAttachMoney, MdSchedule, MdWarning } from 'react-icons/md'
 
 const EXPENSE_TYPES = ['Aluguel', 'Energia', 'Água', 'Internet', 'Outros'] as const
 
@@ -105,6 +106,45 @@ export default function ContasAPagarPage() {
     }
   }, [companyId, expenseToDelete, fetchData])
 
+  /** Totais por status sobre as despesas filtradas. */
+  const totals = useMemo(() => {
+    const todayISO = new Date().toISOString().slice(0, 10)
+    let paid = 0
+    let overdue = 0
+    let pending = 0
+    let countPaid = 0
+    let countOverdue = 0
+    let countPending = 0
+    for (const e of expenses) {
+      const v = Number(e.amount)
+      if (e.payment_date) {
+        paid += v
+        countPaid += 1
+      } else if (e.due_date && e.due_date < todayISO) {
+        overdue += v
+        countOverdue += 1
+      } else {
+        pending += v
+        countPending += 1
+      }
+    }
+    return { paid, overdue, pending, countPaid, countOverdue, countPending }
+  }, [expenses])
+
+  function handleGerarRelatorio() {
+    const periodLabel = filterDate
+      ? new Date(filterDate + '-01').toLocaleDateString('pt-BR', {
+          month: 'long',
+          year: 'numeric',
+        })
+      : null
+    generateContasPagarPdf({
+      expenses,
+      periodLabel,
+      typeLabel: filterType || null,
+    })
+  }
+
   if (companyLoading) return <LoadingScreen message="Carregando..." />
   if (companyError || !companyId) {
     return (
@@ -127,6 +167,46 @@ export default function ContasAPagarPage() {
           <Link href="/home" className={buttonSecondary}>
             ← Voltar
           </Link>
+        </div>
+      </div>
+
+      {/* Cards de resumo (Pago / Atrasado / Pendente) */}
+      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        <div className={card + ' border-l-4 !border-l-emerald-500 p-4'}>
+          <div className="flex items-start justify-between">
+            <MdAttachMoney className="h-6 w-6 text-emerald-500" />
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+              {totals.countPaid}
+            </span>
+          </div>
+          <p className="mt-2 text-2xl font-bold text-[#0f1419]">
+            {formatCurrency(totals.paid)}
+          </p>
+          <p className="mt-1 text-sm text-[#536471]">Pago no período</p>
+        </div>
+        <div className={card + ' border-l-4 !border-l-red-500 p-4'}>
+          <div className="flex items-start justify-between">
+            <MdWarning className="h-6 w-6 text-red-500" />
+            <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+              {totals.countOverdue}
+            </span>
+          </div>
+          <p className="mt-2 text-2xl font-bold text-[#0f1419]">
+            {formatCurrency(totals.overdue)}
+          </p>
+          <p className="mt-1 text-sm text-[#536471]">Em atraso</p>
+        </div>
+        <div className={card + ' border-l-4 !border-l-blue-500 p-4'}>
+          <div className="flex items-start justify-between">
+            <MdSchedule className="h-6 w-6 text-blue-500" />
+            <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">
+              {totals.countPending}
+            </span>
+          </div>
+          <p className="mt-2 text-2xl font-bold text-[#0f1419]">
+            {formatCurrency(totals.pending)}
+          </p>
+          <p className="mt-1 text-sm text-[#536471]">A pagar</p>
         </div>
       </div>
 
@@ -163,8 +243,18 @@ export default function ContasAPagarPage() {
             aria-label="Selecione a data"
           />
         </div>
-        <button type="button" className={buttonPrimary} onClick={() => {}} title="Relatórios">
-          <MdPlayArrow className="h-5 w-5" aria-hidden />
+        <button
+          type="button"
+          className={buttonPrimary}
+          onClick={handleGerarRelatorio}
+          disabled={loading || expenses.length === 0}
+          title={
+            expenses.length === 0
+              ? 'Nenhuma conta para incluir no relatório'
+              : 'Gerar PDF de contas a pagar'
+          }
+        >
+          <MdDescription className="h-5 w-5" aria-hidden />
           Relatórios
         </button>
       </div>

@@ -41,8 +41,28 @@ function formatFromDigits(digits: string): string {
 
 function externalValueToDigits(value: string): string {
   if (!value) return ''
-  // Aceita "123,45" ou "123.45" ou "1.234,56" (com milhar)
-  const normalized = value.replace(/\./g, '').replace(',', '.')
+  const trimmed = value.trim()
+  let normalized: string
+
+  if (trimmed.includes(',')) {
+    // Formato pt-BR explicito (virgula como decimal): "1.234,56" -> 1234.56
+    normalized = trimmed.replace(/\./g, '').replace(',', '.')
+  } else {
+    // Sem virgula: ambiguo entre "1.234" (milhar pt-BR = 1234) vs "1234.56" (decimal JS).
+    // Heuristica: 1 ponto com 1 ou 2 digitos depois -> decimal JS. Caso contrario -> milhar.
+    const dotCount = (trimmed.match(/\./g) || []).length
+    if (dotCount === 1) {
+      const afterDot = trimmed.split('.')[1] ?? ''
+      if (afterDot.length === 1 || afterDot.length === 2) {
+        normalized = trimmed // ja eh decimal JS, parseFloat aceita direto
+      } else {
+        normalized = trimmed.replace(/\./g, '') // separador de milhar
+      }
+    } else {
+      normalized = trimmed.replace(/\./g, '')
+    }
+  }
+
   const num = parseFloat(normalized)
   if (isNaN(num) || num === 0) return ''
   const cents = Math.round(num * 100)

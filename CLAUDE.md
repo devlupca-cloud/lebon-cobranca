@@ -10,13 +10,32 @@ Migracao do front de **FlutterFlow para Next.js (React)**. Backend em construcao
 
 **Referencias obrigatorias:** `README.md` e `docs/DESIGN.md`.
 
+**Outros docs uteis em `docs/`:**
+- `BACKEND-STATUS.md` -- estado atual do schema Supabase (tabelas, RPCs, RLS)
+- `PLANO_ACAO_MIGRACAO_COMPLETO.md` e `PLANO-DE-ACAO.md` -- roadmap da migracao
+- `VARREDURA_FLUTTER_REACT.md` -- diff entre as telas do FlutterFlow original e o React atual (referencia para o que ainda falta)
+- `HEADER.md` -- pattern do header do dashboard (`HeaderProvider` + `setLeftContent`)
+- `NOTIFICACOES.md` -- design das notificacoes
+
 ## Comandos
 
 - `npm run dev` -- desenvolvimento (http://localhost:3000)
 - `npm run build` -- build de producao
 - `npm run lint` -- ESLint
 - `npm run start` -- servidor de producao (apos build)
+- `npx tsc --noEmit` -- type-check sem emitir (nao ha script dedicado no `package.json`)
 - `npx supabase` -- CLI do Supabase (v2.76.7) para schema, migrations, RLS
+
+### Versoes-chave (do `package.json`)
+
+Travadas — nao sugerir APIs de versoes anteriores:
+- Next 16.1.6 (App Router; `proxy.ts` em vez de `middleware.ts`)
+- React 19.2.3 / React DOM 19.2.3
+- TypeScript 5.9.3
+- Tailwind CSS 4 (config via PostCSS, sem `tailwind.config.js`)
+- `@supabase/ssr` 0.8.0 / `@supabase/supabase-js` 2.93.3
+- `jspdf` 4.1.0
+- `react-icons` 5.5.0
 
 ## Variaveis de ambiente
 
@@ -42,6 +61,7 @@ Todo acesso a dados filtra por `company_id`. A tabela `company_users` mapeia usu
 - **Client components:** `useCompanyId()` hook (de `src/hooks/use-company-id.ts`) -- dentro do dashboard usa o `DashboardAuthContext` (sem chamada extra); fora do dashboard faz fallback para `getCompanyId()`
 - **Server/effects:** `getCompanyId()` (de `src/lib/supabase/company`)
 - Nunca hardcodar `company_id`
+- **Importante:** dentro do dashboard NAO chamar `getCompanyId()` direto -- isso fura o cache do `DashboardAuthContext` e dispara uma RPC extra. Use sempre `useCompanyId()`.
 
 ### Estrutura de rotas
 
@@ -95,15 +115,23 @@ O layout do dashboard (`src/app/(dashboard)/layout.tsx`) envolve o conteudo com 
 
 Nao aparece em rotas de listagem (2 niveis de breadcrumb). Para uma nova sub-rota, preferir configurar breadcrumb correto na pagina; o fallback e plano B.
 
-### Dados da empresa (hardcoded nos PDFs)
+### PDFs (`src/lib/pdf/`)
 
-Endereco oficial do CNPJ 30.082.816/0001-72 esta **duplicado** em 6 geradores (`src/lib/pdf/contract-pdf.ts`, `quitacao-pdf.ts`, `anuencia-pdf.ts`, `ficha-cadastral-pdf.ts`, `acordo-pdf.ts`, `recibo-pdf.ts`) na const `COMPANY`. Atual: **R. Adelino Cardana, 293 - Bloco C Sala 702, Centro, 06401-147, Barueri - SP, Tel 11 9.7020-0447**.
+Geradores `jspdf` (todos sao **async** -- carregam imagens via `fetch`):
+- `contract-pdf.ts` -- contrato principal (com marca d'agua + logo M/O no rodape)
+- `quitacao-pdf.ts` -- recibo de quitacao
+- `anuencia-pdf.ts` -- anuencia
+- `ficha-cadastral-pdf.ts` -- ficha cadastral do cliente
+- `acordo-pdf.ts` -- termo de acordo de renegociacao
+- `recibo-pdf.ts` -- recibo simples
+
+**Endereco da empresa duplicado nos 6 arquivos** na const `COMPANY` (CNPJ 30.082.816/0001-72). Atual: **R. Adelino Cardana, 293 - Bloco C Sala 702, Centro, 06401-147, Barueri - SP, Tel 11 9.7020-0447**.
 
 Se mudar endereco, editar os 6 arquivos. O `contract-pdf.ts` tambem tem 3 mencoes a **Barueri** em texto corrido (Clausula 6, fechamento, data de assinatura) que precisam trocar juntas.
 
-Imagens do PDF (`public/pdf/watermark-lebon.jpg` marca d'agua + `public/pdf/logo-mo.jpg` logo M/O rodape) sao carregadas via `fetch` dentro de `generateContractPdf` -- a funcao e **async**.
+Imagens em `public/pdf/`: `watermark-lebon.jpg` (marca d'agua) + `logo-mo.jpg` (logo M/O no rodape).
 
-## Quatro papeis (agentes)
+## Quatro papeis (regras de comportamento)
 
 Regras detalhadas em `.claude/rules/` sao ativadas automaticamente pelos paths dos arquivos:
 
@@ -117,6 +145,19 @@ Regras detalhadas em `.claude/rules/` sao ativadas automaticamente pelos paths d
 Invocacao explicita: "como agente front, migra essa tela" ou "como back, cria a funcao de listagem".
 
 As regras em `.cursor/rules/` (`design-system.mdc`, `use-libraries.mdc`) sao o espelho para o editor Cursor/Antigravity -- mesmos principios, formato `.mdc`. Nao editar um sem sincronizar o outro se a regra for a mesma.
+
+## Subagentes Claude Code (`.claude/agents/`)
+
+Especialistas que podem ser invocados via Task tool para trabalho mais pesado:
+
+| Subagente | Quando usar |
+|-----------|-------------|
+| `feature-planner` | Quebrar uma feature ou bug cross-stack em tarefas sequenciadas (back -> front -> review). Usar **antes** de delegar para os outros. |
+| `migration-analyst` | Analisar uma tela do FlutterFlow e gerar spec de migracao (campos, acoes, dados, navegacao). Usar **antes** de comecar codigo. |
+| `senior-frontend-architect` | Construir/refatorar telas, componentes, rotas. Segue `.claude/rules/front.md` e o design system. |
+| `supabase-backend-engineer` | Funcoes em `src/lib/supabase/`, queries otimizadas, migrations, RLS, RPCs. |
+| `code-reviewer` | Review proativo apos qualquer mudanca significativa de codigo. Cobre design tokens, multi-tenant, TS, perf, a11y. |
+| `product-owner` | Regras de negocio do dominio de cobranca (juros, inadimplencia, acordos, baixa). Usar quando ha ambiguidade de comportamento. |
 
 ## Workflow de migracao (FlutterFlow -> React)
 
@@ -162,7 +203,7 @@ Em modo `agreement`, a tela de simulacao mostra botao "Efetivar Acordo" que cham
 3. Reabre contrato se estava fechado
 4. Recalcula `outstanding_balance` do cliente
 
-Nao existe tabela `agreements` separada -- historico fica nas proprias parcelas. Status/origin em `src/types/enums.ts`.
+Nao existe tabela `agreements` separada -- historico fica nas proprias parcelas. Constantes (`RENEGOTIATED`, `RENEGOTIATION`) em `src/types/enums.ts` (ver tambem secao "Enums de status/origin" abaixo).
 
 ### Baixa de parcela (pagamento)
 
@@ -181,6 +222,25 @@ Pontos de entrada (atalhos) do modal:
 ### Inadimplencia
 
 E automatica: `getOverdueInstallments` em `src/lib/supabase/installments.ts` busca parcelas com `due_date < hoje AND amount_paid < amount AND deleted_at IS NULL`. Agrupadas por contrato em `inadimplentes01/page.tsx`. Bucket `90+` dias marca "Ag. Citacao"; menores marcam "Acordo". Nao existe cadastro manual de inadimplente -- se precisa cadastrar uma divida avulsa, botao "Nova divida avulsa" leva para `/novo-contrato`.
+
+## Enums de status/origin (`src/types/enums.ts`)
+
+Governam toda a logica de parcelas e contratos. Sempre importar destes enums em vez de literal numerico:
+
+- **Installment status:** `OPEN=1`, `PARTIAL=2`, `PAID=3`, `OVERDUE=4`, `CANCELED=5`, `RENEGOTIATED=6`
+- **Installment origin:** `CONTRACT=1`, `RENEGOTIATION=2`
+- Tambem ha enums de tipo de movimentacao financeira e categoria de despesa -- consultar o arquivo.
+
+Saldo devedor (`updateCustomerBalance`) considera `status_id IN (1, 2, 4)` (OPEN, PARTIAL, OVERDUE). Acordos marcam parcelas antigas como `RENEGOTIATED (6)` e geram novas com `origin_id = RENEGOTIATION (2)`.
+
+## Estrutura `supabase/`
+
+- `supabase/migrations/` -- migrations versionadas (formato `YYYYMMDDHHMMSS_<nome>.sql`). Criar novas com `npx supabase migration new <nome>`.
+- `supabase/seed.sql` -- popula a primeira `company_id` ativa em `company_users` com dados de exemplo.
+- `supabase/clean-data.sql` -- limpa apenas dados da empresa do usuario (default `devlup@devlup.ca`); preserva `auth.users` e `company_users`. Editar o e-mail no script se necessario.
+- `supabase/scripts/` -- helpers SQL avulsos.
+
+A RPC `get_customers` e definida no Dashboard do Supabase (NAO esta versionada aqui). Se editar, registrar no `docs/BACKEND-STATUS.md`.
 
 ## Migrations de referencia (criadas em 2026-04-22)
 

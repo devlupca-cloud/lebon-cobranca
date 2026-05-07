@@ -1,12 +1,24 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { checkRateLimit, getClientIdentifier } from '@/lib/rate-limit'
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/home'
+  const rawNext = searchParams.get('next') ?? '/home'
+  // Open redirect guard: aceita apenas paths internos comecando com '/' e nao protocol-relative ('//')
+  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/home'
 
   if (code) {
+    // Rate limit por IP: protege contra abuse de troca de code (recovery brute-force).
+    const ip = getClientIdentifier(request)
+    const rl = await checkRateLimit(ip, 'auth-callback')
+    if (!rl.success) {
+      return NextResponse.redirect(
+        new URL('/login?error=Muitas+tentativas.+Aguarde+um+minuto+e+tente+novamente.', request.url)
+      )
+    }
+
     const response = NextResponse.redirect(new URL(next, request.url))
 
     const supabase = createServerClient(

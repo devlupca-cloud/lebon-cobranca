@@ -1,5 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { checkRateLimit, getClientIdentifier } from '@/lib/rate-limit'
+import { applySecurityHeaders } from '@/lib/security-headers'
 
 const LOGIN_PATH = '/login'
 const CADASTRE_SE_PATH = '/cadastre-se'
@@ -42,6 +44,15 @@ export async function proxy(request: NextRequest) {
   // Exchange the code for a session right here in the middleware, then redirect.
   const code = request.nextUrl.searchParams.get('code')
   if (code) {
+    // Rate limit por IP antes do exchange (mesmo limite do /auth/callback).
+    const ip = getClientIdentifier(request)
+    const rl = await checkRateLimit(ip, 'auth-callback')
+    if (!rl.success) {
+      return applySecurityHeaders(NextResponse.redirect(
+        new URL('/login?error=Muitas+tentativas.+Aguarde+um+minuto+e+tente+novamente.', request.url)
+      ))
+    }
+
     const { error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error) {
@@ -53,13 +64,13 @@ export async function proxy(request: NextRequest) {
           ...cookie,
         })
       })
-      return redirectResponse
+      return applySecurityHeaders(redirectResponse)
     }
 
     // Exchange failed → send to login with friendly error
-    return NextResponse.redirect(
+    return applySecurityHeaders(NextResponse.redirect(
       new URL('/login?error=Link+inv%C3%A1lido+ou+expirado.+Solicite+um+novo.', request.url)
-    )
+    ))
   }
 
   // ── Normal auth checks ──
@@ -70,28 +81,28 @@ export async function proxy(request: NextRequest) {
   // /redefinir-senha: only accessible if authenticated (just came from recovery)
   if (request.nextUrl.pathname === RESET_PASSWORD_PATH) {
     if (!user) {
-      return NextResponse.redirect(new URL(LOGIN_PATH, request.url))
+      return applySecurityHeaders(NextResponse.redirect(new URL(LOGIN_PATH, request.url)))
     }
-    return response
+    return applySecurityHeaders(response)
   }
 
   if (user && isAuthRoute(request.nextUrl.pathname)) {
-    return NextResponse.redirect(new URL(HOME_PATH, request.url))
+    return applySecurityHeaders(NextResponse.redirect(new URL(HOME_PATH, request.url)))
   }
 
   if (!user && isProtectedRoute(request.nextUrl.pathname)) {
-    return NextResponse.redirect(new URL(LOGIN_PATH, request.url))
+    return applySecurityHeaders(NextResponse.redirect(new URL(LOGIN_PATH, request.url)))
   }
 
   if (!user && request.nextUrl.pathname === '/') {
-    return NextResponse.redirect(new URL(LOGIN_PATH, request.url))
+    return applySecurityHeaders(NextResponse.redirect(new URL(LOGIN_PATH, request.url)))
   }
 
   if (user && request.nextUrl.pathname === '/') {
-    return NextResponse.redirect(new URL(HOME_PATH, request.url))
+    return applySecurityHeaders(NextResponse.redirect(new URL(HOME_PATH, request.url)))
   }
 
-  return response
+  return applySecurityHeaders(response)
 }
 
 export const config = {

@@ -16,7 +16,7 @@ async function getContractIdsWithActiveCustomer(
     .is('deleted_at', null)
     .is('customer.deleted_at', null)
   if (error) {
-    console.error('[getContractIdsWithActiveCustomer] Erro ao buscar contratos:', error.message, error.details)
+    console.error('[getContractIdsWithActiveCustomer] Erro ao buscar contratos:', error.message)
     throw new Error(`Erro ao buscar contratos: ${error.message}`)
   }
   return (data ?? []).map((r) => r.id as string)

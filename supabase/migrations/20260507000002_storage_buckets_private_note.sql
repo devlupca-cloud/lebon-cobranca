@@ -1,0 +1,48 @@
+-- Operacional (nao executavel pela migration): tornar os buckets `file` e
+-- `photo_user` PRIVADOS no Dashboard do Supabase para que o acesso passe
+-- obrigatoriamente pelas RLS policies criadas em
+-- 20260507000000_storage_rls_tenant_isolation.sql.
+--
+-- O codigo (src/lib/supabase/files.ts e src/lib/supabase/storage.ts) ja foi
+-- atualizado para:
+--   1. Salvar o PATH no Storage no campo `file_url` (uploads novos)
+--   2. Gerar signed URL on-demand via createSignedUrl(path, ttl=3600s)
+--   3. Backward-compat: se `file_url` ou `photo_user` comecam com `http(s)://`,
+--      retornam como estao (URLs publicas legadas continuam funcionando ate
+--      o bucket ser tornado privado).
+--
+-- Passos manuais no Dashboard:
+--   1. Storage -> bucket `file` -> Configuration -> Public bucket: OFF
+--   2. Storage -> bucket `photo_user` -> Configuration -> Public bucket: OFF
+--   3. (opcional) Backfill: para arquivos antigos com URL publica salva em
+--      `file_url`/`photo_user`, extrair o path e atualizar o registro:
+--
+--      UPDATE public.customer_files
+--         SET file_url = regexp_replace(
+--           file_url,
+--           '^https?://[^/]+/storage/v1/object/(public|sign)/file/',
+--           ''
+--         )
+--       WHERE file_url ~ '^https?://';
+--
+--      UPDATE public.contract_files
+--         SET file_url = regexp_replace(
+--           file_url,
+--           '^https?://[^/]+/storage/v1/object/(public|sign)/file/',
+--           ''
+--         )
+--       WHERE file_url ~ '^https?://';
+--
+--      UPDATE public.company_users
+--         SET photo_user = regexp_replace(
+--           photo_user,
+--           '^https?://[^/]+/storage/v1/object/(public|sign)/photo_user/',
+--           ''
+--         )
+--       WHERE photo_user ~ '^https?://';
+--
+-- Os UPDATEs acima sao opcionais — sem eles, os registros antigos ainda
+-- funcionam (resolveStorageRef retorna a URL publica como esta). Mas apos
+-- tornar o bucket privado, as URLs publicas legadas vao retornar 400/403
+-- e os usuarios precisarao re-upload das fotos/anexos antigos.
+SELECT 1; -- placeholder; nada para alterar nesta migration.

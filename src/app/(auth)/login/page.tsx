@@ -1,11 +1,13 @@
 'use client'
 
-import { createClient } from '@/lib/supabase/client'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { Suspense, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { Suspense, useActionState, useEffect, useState } from 'react'
 import { MdVisibility, MdVisibilityOff } from 'react-icons/md'
+import { loginAction, type LoginState } from './actions'
+
+const initialState: LoginState = { error: null }
 
 /** Read error from ?error= query string OR #error= hash fragment (Supabase uses both) */
 function useAuthError(): string | null {
@@ -34,55 +36,11 @@ function useAuthError(): string | null {
 }
 
 function LoginForm() {
-  const router = useRouter()
   const urlError = useAuthError()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState<string | null>(urlError)
-  const [loading, setLoading] = useState(false)
+  const [state, formAction, isPending] = useActionState(loginAction, initialState)
 
-  // Sync urlError when it arrives from hash (async via useEffect)
-  useEffect(() => {
-    if (urlError) setError(urlError)
-  }, [urlError])
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-    try {
-      const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-      if (!url || url === '') {
-        setError('Supabase não configurado. Adicione NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY no .env.local')
-        setLoading(false)
-        return
-      }
-      const supabase = createClient()
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-      if (signInError) {
-        setError(signInError.message)
-        setLoading(false)
-        return
-      }
-      router.replace('/home')
-      router.refresh()
-    } catch (err) {
-      const message = err instanceof Error ? err.message : ''
-      if (message === 'Failed to fetch' || message.includes('fetch')) {
-        setError(
-          'Não foi possível conectar ao servidor. Verifique se o Supabase está configurado no .env.local e se o projeto está ativo no dashboard do Supabase.'
-        )
-      } else {
-        setError('Erro ao entrar. Tente novamente.')
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
+  const error = state.error ?? urlError
 
   return (
     <div className="w-full max-w-[400px] rounded-[8px] border border-[#e5e7eb] bg-white p-8 shadow-lg">
@@ -106,17 +64,17 @@ function LoginForm() {
         Preencha os campos para entrar
       </p>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form action={formAction} className="space-y-5">
         <div>
           <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-[#0f1419]">
             E-mail
           </label>
           <input
             id="email"
+            name="email"
             type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
             required
+            autoComplete="email"
             className="w-full rounded-[8px] border border-[#e5e7eb] bg-white px-3 py-2.5 text-sm text-[#0f1419] placeholder:text-[#94a3b8] focus:border-[#1E3A8A] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/20"
             placeholder="seu@email.com"
           />
@@ -128,10 +86,10 @@ function LoginForm() {
           <div className="relative">
             <input
               id="password"
+              name="password"
               type={showPassword ? 'text' : 'password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
               required
+              autoComplete="current-password"
               className="w-full rounded-[8px] border border-[#e5e7eb] bg-white py-2.5 pl-3 pr-11 text-sm text-[#0f1419] placeholder:text-[#94a3b8] focus:border-[#1E3A8A] focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/20"
               placeholder="••••••••"
             />
@@ -167,10 +125,10 @@ function LoginForm() {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={isPending}
           className="w-full rounded-[8px] bg-[#1E3A8A] px-4 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-[#1d4ed8] disabled:opacity-50"
         >
-          {loading ? 'Entrando...' : 'Entrar'}
+          {isPending ? 'Entrando...' : 'Entrar'}
         </button>
       </form>
 
